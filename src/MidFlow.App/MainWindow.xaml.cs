@@ -157,7 +157,9 @@ public partial class MainWindow : Window
                 Interlocked.Increment(ref _pendingSamples);
                 _samples.Enqueue(sample);
             }, () => AppSettings.IsEnabledForProcess(Volatile.Read(ref _foregroundProcessName)),
-                () => AppSettings.ShortcutsForProcess(Volatile.Read(ref _foregroundProcessName)));
+                process => AppSettings.ShortcutsForProcess(process),
+                process => AppSettings.GesturesForProcess(process),
+                () => Volatile.Read(ref _foregroundProcessName));
             _hook.Install();
         }
         catch (Exception ex)
@@ -441,14 +443,15 @@ public sealed class TrailSurface : FrameworkElement
     }
 }
 
-internal enum GestureAction { Back, Forward, ReplayMiddleClick }
+internal enum GestureAction { Back, Forward, ReplayMiddleClick, MatchCustom }
 
 internal sealed class LowLevelMouseHook : IDisposable
 {
     private readonly NativeMethods.LowLevelMouseProc _callback;
     private readonly Action<MouseSample> _publish;
     private readonly Func<bool> _isEnabled;
-    private readonly Func<MidFlow.Core.Shortcuts.ShortcutPair> _getShortcuts;
+    private readonly Func<string, MidFlow.Core.Shortcuts.ShortcutPair> _getShortcuts;
+    private readonly Func<string, IReadOnlyList<GestureDefinition>> _getGestures;
     private readonly ManualResetEventSlim _ready = new(false);
     private readonly Thread _thread;
     private readonly BlockingCollection<QueuedAction> _actions = new(new ConcurrentQueue<QueuedAction>());
@@ -457,15 +460,21 @@ internal sealed class LowLevelMouseHook : IDisposable
     private uint _threadId;
     private Exception? _startupError;
     private GestureSession? _session;
+    private bool _recordGestureSession;
     private long _lastMoveLogTimestamp;
     private int _disposed;
+    private readonly Func<string> _getForegroundProcess;
 
     internal LowLevelMouseHook(Action<MouseSample> publish, Func<bool> isEnabled,
-        Func<MidFlow.Core.Shortcuts.ShortcutPair> getShortcuts)
+        Func<string, MidFlow.Core.Shortcuts.ShortcutPair> getShortcuts,
+        Func<string, IReadOnlyList<GestureDefinition>> getGestures,
+        Func<string> getForegroundProcess)
     {
         _publish = publish;
         _isEnabled = isEnabled;
         _getShortcuts = getShortcuts;
+        _getGestures = getGestures;
+        _getForegroundProcess = getForegroundProcess;
         _callback = Callback;
         _thread = new Thread(HookThreadMain) { IsBackground = true, Name = "MidFlow.InputHook" };
         _actionThread = new Thread(ActionWorkerMain)
@@ -543,7 +552,7 @@ internal sealed class LowLevelMouseHook : IDisposable
 
         // When disabled, pass all physical input through. If a gesture is already
         // active, finish consuming it to avoid an unmatched middle-button release.
-        if (_session is null && !_isEnabled())
+        if (_session is null && !_isEnabled() && !AppSettings.GestureCapturePending)
             return NativeMethods.CallNextHookEx(_handle, code, wParam, lParam);
 
         var message = unchecked((uint)wParam.ToInt64());
@@ -557,6 +566,7 @@ internal sealed class LowLevelMouseHook : IDisposable
                         AppSettings.MinimumHorizontalMovementPx,
                         AppSettings.MaximumVerticalMovementPx,
                         AppSettings.MaximumGestureDurationMs);
+                    _recordGestureSession = AppSettings.TryBeginGestureCaptureSession();
                     Publish(MouseEventKind.MiddleDown, data.Point.X, data.Point.Y);
                     return new IntPtr(1);
                 }
@@ -578,14 +588,17 @@ internal sealed class LowLevelMouseHook : IDisposable
                     _session = null;
                     Publish(MouseEventKind.MiddleUp, data.Point.X, data.Point.Y);
 
-                    var result = session.Evaluate();
-                    GestureAction? action = result.Direction switch
+                    if (_recordGestureSession)
                     {
-                        GestureDirection.Left => GestureAction.Back,
-                        GestureDirection.Right => GestureAction.Forward,
-                        _ when session.HasDragged => null,
-                        _ => GestureAction.ReplayMiddleClick
-                    };
+                        _recordGestureSession = false;
+                        AppSettings.CompleteGestureCapture(session.GetRecordedPoints());
+                        return new IntPtr(1);
+                    }
+
+                    var result = session.Evaluate();
+                    GestureAction? action = session.HasDragged
+                        ? result.Reason == "TooSlow" ? null : GestureAction.MatchCustom
+                        : GestureAction.ReplayMiddleClick;
 
                     if (result.Direction is GestureDirection.Left or GestureDirection.Right)
                         Publish(MouseEventKind.GestureFeedback, data.Point.X, data.Point.Y, result.Direction);
@@ -594,19 +607,20 @@ internal sealed class LowLevelMouseHook : IDisposable
                     // beyond click jitter is treated as a drag and remains consumed,
                     // even when it is vertical, diagonal, too short, or too slow.
                     // Never call SendInput from WH_MOUSE_LL; queue actions and return.
-                    if (action.HasValue)
+                    if (action == GestureAction.MatchCustom)
                     {
-                        if (action == GestureAction.ReplayMiddleClick)
-                            _actions.TryAdd(new QueuedAction(action.Value, MidFlow.Core.Shortcuts.KeyboardShortcut.Disabled));
-                        else
-                        {
-                            var mapping = _getShortcuts();
-                            var shortcut = result.Direction == GestureDirection.Left ? mapping.Back : mapping.Forward;
-                            if (shortcut.Enabled) _actions.TryAdd(new QueuedAction(action.Value, shortcut));
-                        }
+                        _actions.TryAdd(new QueuedAction(action.Value,
+                            MidFlow.Core.Shortcuts.KeyboardShortcut.Disabled,
+                            RawPoints: session.GetRecordedPoints(),
+                            ProcessName: _getForegroundProcess(),
+                            FallbackDirection: result.Direction));
+                    }
+                    else if (action == GestureAction.ReplayMiddleClick)
+                    {
+                        _actions.TryAdd(new QueuedAction(action.Value, MidFlow.Core.Shortcuts.KeyboardShortcut.Disabled));
                     }
 
-                    var actionName = action?.ToString() ?? "SuppressedDrag";
+                    var actionName = action == GestureAction.MatchCustom ? "CustomMatchQueued" : action?.ToString() ?? "SuppressedDrag";
                     DiagnosticLog.Write(
                         $"GESTURE direction={result.Direction} dx={result.Dx} dy={result.Dy} " +
                         $"dragged={session.HasDragged} durationMs={result.DurationMs:F1} " +
@@ -631,7 +645,9 @@ internal sealed class LowLevelMouseHook : IDisposable
                 success = action switch
                 {
                     GestureAction.Back or GestureAction.Forward => NativeMethods.TrySendShortcut(request.Shortcut, out error),
-                    _ => NativeMethods.TryReplayMiddleClick(out error)
+                    GestureAction.ReplayMiddleClick => NativeMethods.TryReplayMiddleClick(out error),
+                    GestureAction.MatchCustom => ExecuteCustomGesture(request, out error),
+                    _ => false
                 };
             }
             catch (Exception ex)
@@ -643,6 +659,52 @@ internal sealed class LowLevelMouseHook : IDisposable
             DiagnosticLog.Write(
                 $"ACTION_COMPLETE action={action} success={success} durationMs={duration:F2}" +
                 (string.IsNullOrWhiteSpace(error) ? "" : $" error={error}"));
+        }
+    }
+
+    private bool ExecuteCustomGesture(QueuedAction request, out string error)
+    {
+        error = "No matching custom gesture.";
+        var path = request.RawPoints is null ? null : GesturePath.Create(request.RawPoints);
+        var processName = request.ProcessName ?? string.Empty;
+        var match = path is null
+            ? null
+            : GestureResolver.Match(path, _getGestures(processName));
+        if (match is null)
+        {
+            var shortcuts = _getShortcuts(processName);
+            var fallback = request.FallbackDirection switch
+            {
+                GestureDirection.Left => shortcuts.Back,
+                GestureDirection.Right => shortcuts.Forward,
+                _ => null
+            };
+            if (fallback is { Enabled: true }) return NativeMethods.TrySendShortcut(fallback, out error);
+            if (fallback is null) error = "";
+            else error = "The resolved direction shortcut is disabled.";
+            return false;
+        }
+        DiagnosticLog.Write($"GESTURE_MATCH id={match.Id} action={match.Action.Kind} process={processName}");
+        switch (match.Action.Kind)
+        {
+            case GestureActionKind.Back:
+                var back = _getShortcuts(processName).Back;
+                if (!back.Enabled) { error = "Back shortcut is disabled."; return false; }
+                return NativeMethods.TrySendShortcut(back, out error);
+            case GestureActionKind.Forward:
+                var forward = _getShortcuts(processName).Forward;
+                if (!forward.Enabled) { error = "Forward shortcut is disabled."; return false; }
+                return NativeMethods.TrySendShortcut(forward, out error);
+            case GestureActionKind.LaunchApplication:
+                var executable = match.Action.ApplicationPath;
+                if (string.IsNullOrWhiteSpace(executable) || !File.Exists(executable))
+                { error = "The application file no longer exists."; return false; }
+                Process.Start(new ProcessStartInfo(executable) { UseShellExecute = false });
+                error = "";
+                return true;
+            default:
+                error = "Unsupported gesture action.";
+                return false;
         }
     }
 
@@ -684,7 +746,9 @@ internal sealed class LowLevelMouseHook : IDisposable
     }
 }
 
-internal sealed record QueuedAction(GestureAction Action, MidFlow.Core.Shortcuts.KeyboardShortcut Shortcut);
+internal sealed record QueuedAction(GestureAction Action, MidFlow.Core.Shortcuts.KeyboardShortcut Shortcut,
+    IReadOnlyList<GesturePoint>? RawPoints = null, string? ProcessName = null,
+    GestureDirection FallbackDirection = GestureDirection.None);
 
 internal static class DiagnosticLog
 {

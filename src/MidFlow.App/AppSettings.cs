@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Text.Json;
 using MidFlow.Core.Shortcuts;
+using MidFlow.Core.Gestures;
 
 namespace MidFlow.App;
 
@@ -20,8 +21,17 @@ internal static class AppSettings
     private static Dictionary<string, bool> _profiles = new(StringComparer.OrdinalIgnoreCase);
     private static ShortcutPair _globalShortcuts = ShortcutPair.Defaults;
     private static Dictionary<string, ShortcutOverride> _shortcutProfiles = new(StringComparer.OrdinalIgnoreCase);
+    private static List<GestureDefinition> _globalGestures = [];
+    private static Dictionary<string, GestureProfile> _gestureProfiles = new(StringComparer.OrdinalIgnoreCase);
+    private static int _gestureCaptureRequested;
 
     internal static event Action? Changed;
+    internal static event Action<IReadOnlyList<GesturePoint>>? GestureCaptured;
+    internal static bool GestureCapturePending => Volatile.Read(ref _gestureCaptureRequested) == 1;
+    internal static bool BeginGestureCapture() => Interlocked.Exchange(ref _gestureCaptureRequested, 1) == 0;
+    internal static bool TryBeginGestureCaptureSession() => Interlocked.Exchange(ref _gestureCaptureRequested, 0) == 1;
+    internal static void CancelGestureCapture() => Interlocked.Exchange(ref _gestureCaptureRequested, 0);
+    internal static void CompleteGestureCapture(IReadOnlyList<GesturePoint> points) => GestureCaptured?.Invoke(points);
     internal static bool GesturesEnabled
     {
         get => Volatile.Read(ref _gesturesEnabled) == 1;
@@ -59,6 +69,41 @@ internal static class AppSettings
 
     internal static ShortcutPair ShortcutsForProcess(string processName)
     { lock (Sync) return ShortcutResolver.Resolve(processName, _globalShortcuts, _shortcutProfiles); }
+
+    internal static IReadOnlyList<GestureDefinition> GesturesForProcess(string processName)
+    { lock (Sync) return GestureResolver.Resolve(processName, _globalGestures, _gestureProfiles).ToArray(); }
+
+    internal static IReadOnlyList<GestureDefinition> GlobalGestures
+    { get { lock (Sync) return _globalGestures.ToArray(); } }
+
+    internal static IReadOnlyDictionary<string, GestureProfile> GestureProfiles
+    { get { lock (Sync) return new Dictionary<string, GestureProfile>(_gestureProfiles, StringComparer.OrdinalIgnoreCase); } }
+
+    internal static void SetGestureMappings(IEnumerable<GestureDefinition> global,
+        IEnumerable<KeyValuePair<string, GestureProfile>> profiles)
+    {
+        var globalItems = global.ToList();
+        var profileItems = new Dictionary<string, GestureProfile>(StringComparer.OrdinalIgnoreCase);
+        if (globalItems.Any(g => !g.IsValid) || HasConflicts(globalItems))
+            throw new ArgumentException("A global gesture is invalid or conflicts with another gesture.", nameof(global));
+        foreach (var item in profiles)
+        {
+            var name = Path.GetFileNameWithoutExtension(item.Key.Trim());
+            if (string.IsNullOrWhiteSpace(name) || item.Value.Gestures.Any(g => !g.IsValid) || HasConflicts(item.Value.Gestures))
+                throw new ArgumentException("An application gesture mapping is invalid or conflicting.", nameof(profiles));
+            profileItems[name] = item.Value with { Gestures = item.Value.Gestures.ToArray() };
+        }
+        lock (Sync) { _globalGestures = globalItems; _gestureProfiles = profileItems; }
+    }
+
+    private static bool HasConflicts(IReadOnlyList<GestureDefinition> gestures)
+    {
+        for (var i = 0; i < gestures.Count; i++)
+            for (var j = i + 1; j < gestures.Count; j++)
+                if (gestures[i].Enabled && gestures[j].Enabled &&
+                    gestures[i].Path.DistanceTo(gestures[j].Path) < 0.255) return true;
+        return false;
+    }
 
     internal static void SetShortcuts(ShortcutPair global, IEnumerable<KeyValuePair<string, ShortcutOverride>> profiles)
     {
@@ -118,6 +163,11 @@ internal static class AppSettings
             var mappings = (data.ShortcutProfiles ?? new()).Where(x => x.Value is not null)
                 .Select(x => new KeyValuePair<string, ShortcutOverride>(x.Key, x.Value!));
             if (global.IsValid && mappings.All(x => x.Value.IsValid)) SetShortcuts(global, mappings);
+            var gestures = data.Gestures ?? [];
+            var gestureProfiles = (data.GestureProfiles ?? new()).Where(x => x.Value is not null)
+                .Select(x => new KeyValuePair<string, GestureProfile>(x.Key, x.Value!));
+            try { SetGestureMappings(gestures, gestureProfiles); }
+            catch (ArgumentException) { DiagnosticLog.Write("SETTINGS invalidGestureMappings=true"); }
         }
         catch { /* Invalid settings fall back to safe defaults. */ }
     }
@@ -132,6 +182,7 @@ internal static class AppSettings
                 MinimumHorizontalMovementPx, MaximumVerticalMovementPx,
                 MaximumGestureDurationMs, ClickMovementThresholdPx);
             data = data with { GlobalShortcuts = _globalShortcuts, ShortcutProfiles = new(_shortcutProfiles, StringComparer.OrdinalIgnoreCase) };
+            data = data with { Gestures = _globalGestures, GestureProfiles = new(_gestureProfiles, StringComparer.OrdinalIgnoreCase) };
             var json = JsonSerializer.Serialize(data, new JsonSerializerOptions { WriteIndented = true });
             File.WriteAllText(SettingsPath, json);
         }
@@ -151,5 +202,7 @@ internal static class AppSettings
         int? MaximumGestureDurationMs = null,
         int? ClickMovementThresholdPx = null,
         ShortcutPair? GlobalShortcuts = null,
-        Dictionary<string, ShortcutOverride>? ShortcutProfiles = null);
+        Dictionary<string, ShortcutOverride>? ShortcutProfiles = null,
+        List<GestureDefinition>? Gestures = null,
+        Dictionary<string, GestureProfile>? GestureProfiles = null);
 }

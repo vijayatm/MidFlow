@@ -12,6 +12,8 @@ MidFlow is a lightweight native Windows utility for middle-button mouse gestures
 - Configurable gesture sensitivity and diagnostic logs.
 - Recordable global Back / Forward keyboard chords with per-application overrides.
 - A unified application shortcut list for per-app gesture enable/disable and Back / Forward mappings.
+- Recordable custom mouse paths with global or per-application scope.
+- Custom gesture actions for Back, Forward, or launching a selected application.
 
 ## Set up on Windows
 
@@ -46,6 +48,8 @@ The distribution folder is `artifacts\win-x64`. The command directs build and pu
 MidFlow continues to read and write `%APPDATA%\MouseFlow\settings.json` to preserve existing Phase 7 settings and profiles. The application name has changed; this settings location remains the legacy compatibility path.
 
 Keyboard shortcuts default to `Alt+Left` for Back and `Alt+Right` for Forward. In Settings, focus a shortcut field and press a chord to record it; press Escape to disable that mapping. Add an application by entering its process name or browsing to its `.exe`. Application overrides are independent by direction and inherit the global shortcut until you record or disable that direction. Existing settings files load with the default shortcuts.
+
+Open **Manage custom gestures** in Settings to record a path while holding the middle mouse button. Choose a global or application scope, name the gesture, and assign Back, Forward, or Launch application. App scopes inherit the global gesture set until you choose **Customize for this app**; that creates an independent copy for the app. Similar gestures in the same scope are rejected to avoid ambiguous matches. Custom matches are checked before the built-in horizontal Back/Forward gestures, which remain the fallback when no custom path matches. A stationary middle click is still replayed, and slow or unrecognized drags remain suppressed.
 
 ## Repository layout
 

@@ -3,6 +3,7 @@ using System.IO;
 using System.Windows;
 using System.Windows.Input;
 using MidFlow.Core.Shortcuts;
+using MidFlow.Core.Gestures;
 using MessageBox = System.Windows.MessageBox;
 
 namespace MidFlow.App;
@@ -13,6 +14,8 @@ public partial class SettingsWindow : Window
     private KeyboardShortcut _globalForward = KeyboardShortcut.DefaultForward;
     private readonly Dictionary<string, ShortcutOverride> _shortcutProfiles = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, bool> _applicationEnabled = new(StringComparer.OrdinalIgnoreCase);
+    private List<GestureDefinition> _globalGestures = [];
+    private readonly Dictionary<string, GestureProfile> _gestureProfiles = new(StringComparer.OrdinalIgnoreCase);
     private System.Windows.Controls.Button? _captureButton;
     private string? _captureProcess;
     private bool _captureBack;
@@ -35,8 +38,24 @@ public partial class SettingsWindow : Window
         foreach (var item in AppSettings.ShortcutProfiles) _shortcutProfiles[item.Key] = item.Value;
         foreach (var process in _shortcutProfiles.Keys)
             _applicationEnabled.TryAdd(process, true);
+        _globalGestures = AppSettings.GlobalGestures.ToList();
+        foreach (var item in AppSettings.GestureProfiles) _gestureProfiles[item.Key] = item.Value;
+        foreach (var process in _gestureProfiles.Keys) _applicationEnabled.TryAdd(process, true);
         GlobalBackText.Content = Display(_globalBack);
         GlobalForwardText.Content = Display(_globalForward);
+        RefreshOverrides();
+    }
+
+    private void ManageGestures_Click(object sender, RoutedEventArgs e)
+    {
+        var applications = _applicationEnabled.Keys.Concat(_shortcutProfiles.Keys).Concat(_gestureProfiles.Keys)
+            .Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+        var manager = new GestureManagerWindow(_globalGestures, _gestureProfiles, applications) { Owner = this };
+        if (manager.ShowDialog() != true) return;
+        _globalGestures = manager.GlobalGestures.ToList();
+        _gestureProfiles.Clear();
+        foreach (var item in manager.GestureProfiles) _gestureProfiles[item.Key] = item.Value;
+        foreach (var process in _gestureProfiles.Keys) _applicationEnabled.TryAdd(process, true);
         RefreshOverrides();
     }
 
@@ -100,7 +119,7 @@ public partial class SettingsWindow : Window
             MessageBox.Show("Choose or enter a valid application name.", "MidFlow Settings", MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
-        if (_applicationEnabled.ContainsKey(process) || _shortcutProfiles.ContainsKey(process))
+        if (_applicationEnabled.ContainsKey(process) || _shortcutProfiles.ContainsKey(process) || _gestureProfiles.ContainsKey(process))
         {
             MessageBox.Show($"{process} already has an application shortcut row. Edit its Back or Forward shortcut below.",
                 "MidFlow Settings", MessageBoxButton.OK, MessageBoxImage.Information);
@@ -130,7 +149,7 @@ public partial class SettingsWindow : Window
     private void RefreshOverrides()
     {
         ShortcutRowsPanel.Children.Clear();
-        var processNames = _applicationEnabled.Keys.Concat(_shortcutProfiles.Keys)
+        var processNames = _applicationEnabled.Keys.Concat(_shortcutProfiles.Keys).Concat(_gestureProfiles.Keys)
             .Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(x => x, StringComparer.OrdinalIgnoreCase);
         var hasRows = false;
         foreach (var process in processNames)
@@ -256,6 +275,7 @@ public partial class SettingsWindow : Window
             _captureProcess = null;
         }
         _shortcutProfiles.Remove(process);
+        _gestureProfiles.Remove(process);
         _applicationEnabled.Remove(process);
         RefreshOverrides();
     }
@@ -308,7 +328,17 @@ public partial class SettingsWindow : Window
         AppSettings.GesturesEnabled = GesturesCheckBox.IsChecked == true;
         AppSettings.ShowTrail = TrailCheckBox.IsChecked == true;
         AppSettings.SetProfiles(_applicationEnabled);
-        AppSettings.SetShortcuts(new ShortcutPair(_globalBack, _globalForward), _shortcutProfiles);
+        try
+        {
+            AppSettings.SetShortcuts(new ShortcutPair(_globalBack, _globalForward), _shortcutProfiles);
+            AppSettings.SetGestureMappings(_globalGestures, _gestureProfiles);
+        }
+        catch (ArgumentException ex)
+        {
+            MessageBox.Show($"Review the shortcut and gesture mappings before saving.\n\n{ex.Message}",
+                "MidFlow Settings", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
         AppSettings.Save();
         Close();
     }

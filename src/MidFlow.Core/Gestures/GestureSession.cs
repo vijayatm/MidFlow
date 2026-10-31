@@ -12,6 +12,8 @@ public sealed class GestureSession
     private int _x;
     private int _y;
     private bool _hasDragged;
+    private readonly GesturePoint[] _pathPoints = new GesturePoint[128];
+    private int _pathCount;
 
     private readonly int _clickMovementThresholdPx;
     private readonly int _minimumHorizontalMovementPx;
@@ -30,6 +32,8 @@ public sealed class GestureSession
         _maximumGestureDurationMs = maximumGestureDurationMs;
         _startX = _x = x;
         _startY = _y = y;
+        _pathPoints[0] = new GesturePoint(x, y);
+        _pathCount = 1;
         _startedAt = Stopwatch.GetTimestamp();
     }
 
@@ -37,11 +41,28 @@ public sealed class GestureSession
     {
         _x = x;
         _y = y;
+        if (_pathCount < _pathPoints.Length)
+        {
+            var previous = _pathPoints[_pathCount - 1];
+            var dxPath = x - previous.X;
+            var dyPath = y - previous.Y;
+            if ((dxPath * dxPath) + (dyPath * dyPath) >= 9)
+                _pathPoints[_pathCount++] = new GesturePoint(x, y);
+        }
         var dx = x - _startX;
         var dy = y - _startY;
         if ((dx * dx) + (dy * dy) > _clickMovementThresholdPx * _clickMovementThresholdPx)
             _hasDragged = true;
     }
+
+    public GesturePoint[] GetRecordedPoints()
+    {
+        var points = new GesturePoint[_pathCount];
+        Array.Copy(_pathPoints, points, _pathCount);
+        return points;
+    }
+
+    public GesturePath? GetRecordedPath() => GesturePath.Create(GetRecordedPoints());
 
     public (GestureDirection Direction, int Dx, int Dy, double DurationMs, string Reason) Evaluate()
     {
