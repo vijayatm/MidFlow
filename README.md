@@ -45,24 +45,26 @@ The distribution folder is `artifacts\win-x64`. The command directs build and pu
 
 ### Publish a Windows download on GitHub
 
-The repository includes `.github/workflows/release.yml`. Set it up once, then publish a release whenever you push a version tag:
+The repository includes `.github/workflows/release.yml`. Because the release job uses a self-hosted Windows runner, set up your PC once, then publish a release whenever you push a version tag:
 
-1. Push the workflow to GitHub on the default branch (`main`).
-2. In the repository, open **Settings → Actions → General** and make sure Actions are allowed. Under **Workflow permissions**, select **Read and write permissions** if the repository's policy requires it; the workflow requests `contents: write` so it can create a release.
-3. From PowerShell in the repository, create and push a tag for the commit you want to publish. For example:
+1. Install the **.NET 10 SDK** on the Windows PC that will host the runner. Keep the PC online while a release is building.
+2. In the repository, open **Settings → Actions → Runners → New self-hosted runner**, select **Windows** and **x64**, then follow GitHub's displayed download and configuration commands on that PC. Register it for this repository and configure it to run as a Windows service so it is available after sign-in or restart. Keep the runner software updated.
+3. In the repository, open **Settings → Actions → General** and make sure Actions are allowed. Under **Workflow permissions**, allow read and write access if required; the workflow requests `contents: write` to create releases.
+4. Push the workflow to GitHub on the default branch (`main`). Confirm the runner appears as **Idle** under **Settings → Actions → Runners**.
+5. From PowerShell in the repository, create and push a new, unused version tag for the commit you want to publish. For example:
 
    ```powershell
    git switch main
    git pull
-   git tag v7.1.0
-   git push origin v7.1.0
+   git tag v7.1.1
+   git push origin v7.1.1
    ```
 
-   Use a new, unused version tag for each release. The workflow runs for tags matching `v*`.
-4. In GitHub, open **Actions** and wait for **Windows release** to finish. Then open **Releases** and select the release for that tag.
-5. Download `MidFlow-win-x64.zip` from the release's **Assets** section. Extract it and run `MidFlow.App.exe`.
+   The workflow runs for tags matching `v*`. The `v7.1.0` tag has already been used; choose the next version or another unused tag.
+6. In GitHub, open **Actions** and wait for **Windows release** to finish. Then open **Releases** and select the release for that tag.
+7. Download `MidFlow-win-x64.zip` from the release's **Assets** section. Extract it and run `MidFlow.App.exe`.
 
-The workflow builds a self-contained `win-x64` app, so users do not need to install the .NET runtime separately. The ZIP is a portable application package, not a setup wizard installer. The executable download is hosted as a GitHub Release asset; GitHub Packages is for registries such as NuGet and container images.
+The workflow runs only on pushed version tags, but this is a public repository: never add pull request or other untrusted code workflows to this self-hosted runner. A self-hosted runner executes repository workflow code on your PC. The workflow builds a self-contained `win-x64` app, so users do not need to install the .NET runtime separately. The ZIP is a portable application package, not a setup wizard installer. The executable download is hosted as a GitHub Release asset; GitHub Packages is for registries such as NuGet and container images.
 
 ## Settings compatibility
 
