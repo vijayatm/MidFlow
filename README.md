@@ -47,7 +47,7 @@ The distribution folder is `artifacts\win-x64`. The command directs build and pu
 
 The repository includes `.github/workflows/release.yml`. Because the release job uses a self-hosted Windows runner, set up your PC once, then publish a release whenever you push a version tag:
 
-1. Install the **.NET 10 SDK** on the Windows PC that will host the runner. Keep the PC online while a release is building.
+1. Keep the Windows PC online while a release is building. The workflow installs the **.NET 10 SDK** into the runner's writable temporary directory, so it does not need permission to write to `C:\Program Files\dotnet`.
 2. In the repository, open **Settings → Actions → Runners → New self-hosted runner**, select **Windows** and **x64**, then follow GitHub's displayed download and configuration commands on that PC. Register it for this repository and configure it to run as a Windows service so it is available after sign-in or restart. Keep the runner software updated.
 3. In the repository, open **Settings → Actions → General** and make sure Actions are allowed. Under **Workflow permissions**, allow read and write access if required; the workflow requests `contents: write` to create releases.
 4. Push the workflow to GitHub on the default branch (`main`). Confirm the runner appears as **Idle** under **Settings → Actions → Runners**.
