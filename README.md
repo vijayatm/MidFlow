@@ -43,6 +43,8 @@ dotnet publish .\src\MidFlow.App\MidFlow.App.csproj -c Release -r win-x64 --self
 
 The distribution folder is `artifacts\win-x64`. The command directs build and publish outputs to the same folder, avoiding duplicate copies under the project `bin` directories. This is a framework-dependent publish, so the target machine needs the .NET 10 Windows Desktop runtime. For development builds, run the `dotnet build` command above directly.
 
+To create a downloadable Windows package on GitHub, push a version tag such as `v7.1.0`. The Windows release workflow publishes a self-contained `win-x64` build and attaches `MidFlow-win-x64.zip` to the GitHub Release. Extract the ZIP and run `MidFlow.App.exe`; it does not require a separate .NET runtime installation. This is a portable application package, not a setup wizard installer.
+
 ## Settings compatibility
 
 MidFlow continues to read and write `%APPDATA%\MouseFlow\settings.json` to preserve existing Phase 7 settings and profiles. The application name has changed; this settings location remains the legacy compatibility path.
