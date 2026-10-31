@@ -43,7 +43,26 @@ dotnet publish .\src\MidFlow.App\MidFlow.App.csproj -c Release -r win-x64 --self
 
 The distribution folder is `artifacts\win-x64`. The command directs build and publish outputs to the same folder, avoiding duplicate copies under the project `bin` directories. This is a framework-dependent publish, so the target machine needs the .NET 10 Windows Desktop runtime. For development builds, run the `dotnet build` command above directly.
 
-To create a downloadable Windows package on GitHub, push a version tag such as `v7.1.0`. The Windows release workflow publishes a self-contained `win-x64` build and attaches `MidFlow-win-x64.zip` to the GitHub Release. Extract the ZIP and run `MidFlow.App.exe`; it does not require a separate .NET runtime installation. This is a portable application package, not a setup wizard installer.
+### Publish a Windows download on GitHub
+
+The repository includes `.github/workflows/release.yml`. Set it up once, then publish a release whenever you push a version tag:
+
+1. Push the workflow to GitHub on the default branch (`main`).
+2. In the repository, open **Settings → Actions → General** and make sure Actions are allowed. Under **Workflow permissions**, select **Read and write permissions** if the repository's policy requires it; the workflow requests `contents: write` so it can create a release.
+3. From PowerShell in the repository, create and push a tag for the commit you want to publish. For example:
+
+   ```powershell
+   git switch main
+   git pull
+   git tag v7.1.0
+   git push origin v7.1.0
+   ```
+
+   Use a new, unused version tag for each release. The workflow runs for tags matching `v*`.
+4. In GitHub, open **Actions** and wait for **Windows release** to finish. Then open **Releases** and select the release for that tag.
+5. Download `MidFlow-win-x64.zip` from the release's **Assets** section. Extract it and run `MidFlow.App.exe`.
+
+The workflow builds a self-contained `win-x64` app, so users do not need to install the .NET runtime separately. The ZIP is a portable application package, not a setup wizard installer. The executable download is hosted as a GitHub Release asset; GitHub Packages is for registries such as NuGet and container images.
 
 ## Settings compatibility
 
