@@ -3,5 +3,6 @@ obj/
 .vs/
 TestResults/
 artifacts/
+/actions-runner/
 *.user
 *.suo
