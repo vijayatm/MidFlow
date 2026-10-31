@@ -81,10 +81,16 @@ public partial class MainWindow : Window
         menu.Items.Add("Open log folder", null, (_, _) => AppSettings.OpenLogFolder());
         menu.Items.Add(new Forms.ToolStripSeparator());
         menu.Items.Add("Exit MidFlow", null, (_, _) => Application.Current.Shutdown());
-        var iconPath = Path.Combine(AppContext.BaseDirectory, "MidFlow.ico");
-        _trayIconImage = File.Exists(iconPath)
-            ? new Drawing.Icon(iconPath)
-            : (Drawing.Icon)Drawing.SystemIcons.Application.Clone();
+        using var iconStream = typeof(MainWindow).Assembly.GetManifestResourceStream("MidFlow.App.MidFlow.ico");
+        if (iconStream is not null)
+        {
+            using var icon = new Drawing.Icon(iconStream);
+            _trayIconImage = (Drawing.Icon)icon.Clone();
+        }
+        else
+        {
+            _trayIconImage = (Drawing.Icon)Drawing.SystemIcons.Application.Clone();
+        }
         _trayIcon = new Forms.NotifyIcon
         {
             Icon = _trayIconImage,

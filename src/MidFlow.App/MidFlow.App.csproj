@@ -15,6 +15,6 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\MidFlow.Core\MidFlow.Core.csproj" />
-    <Content Include="MidFlow.ico" CopyToOutputDirectory="PreserveNewest" />
+    <EmbeddedResource Include="MidFlow.ico" />
   </ItemGroup>
 </Project>
