@@ -1,29 +1,50 @@
 <Window x:Class="MidFlow.App.SettingsWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="MidFlow Settings" Height="690" Width="560"
-        ResizeMode="CanResize" MinHeight="620" MinWidth="500"
+        Title="MidFlow Settings" Height="900" Width="620"
+        ResizeMode="CanResize" MinHeight="760" MinWidth="540"
         WindowStartupLocation="CenterScreen">
   <Grid Margin="22">
     <Grid.RowDefinitions>
       <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
-      <RowDefinition Height="Auto"/><RowDefinition Height="2*"/>
-      <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+      <RowDefinition Height="*"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
     </Grid.RowDefinitions>
     <TextBlock Text="MidFlow Settings" FontSize="20" FontWeight="SemiBold" Margin="0,0,0,18"/>
     <StackPanel Grid.Row="1">
       <CheckBox x:Name="GesturesCheckBox" Content="Enable middle-button Back / Forward gestures" Margin="0,0,0,12"/>
       <CheckBox x:Name="TrailCheckBox" Content="Show cursor trail and direction feedback"/>
     </StackPanel>
-    <TextBlock Grid.Row="2" Text="Application profiles" FontWeight="SemiBold" Margin="0,20,0,8"/>
-    <Grid Grid.Row="3">
-      <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
-      <TextBlock Text="One process per line: process-name=enabled or process-name=disabled. Use the executable name without .exe. Apps not listed use the global setting." TextWrapping="Wrap" Foreground="#666" Margin="0,0,0,10"/>
-      <TextBox x:Name="ProfilesTextBox" Grid.Row="1" AcceptsReturn="True"
-               VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"
-               FontFamily="Consolas" FontSize="13" TextWrapping="NoWrap"/>
-    </Grid>
-    <GroupBox Grid.Row="4" Header="Gesture sensitivity" Margin="0,12,0,0" Padding="12">
+    <GroupBox Grid.Row="2" Header="Application shortcuts" Margin="0,12,0,0" Padding="12">
+      <StackPanel>
+        <Grid Margin="0,0,0,8">
+          <Grid.ColumnDefinitions><ColumnDefinition Width="150"/><ColumnDefinition Width="*"/><ColumnDefinition Width="90"/></Grid.ColumnDefinitions>
+          <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+          <TextBlock Text="Global Back" VerticalAlignment="Center"/>
+          <Button x:Name="GlobalBackText" Grid.Column="1" PreviewKeyDown="ShortcutCapture_KeyDown" Click="BeginGlobalShortcutCapture_Click" Tag="GlobalBack" Margin="4" ToolTip="Click, then press a keyboard chord. Escape disables it."/>
+          <Button Grid.Column="2" Content="Disable" Click="DisableShortcut_Click" Tag="GlobalBack"/>
+          <TextBlock Grid.Row="1" Text="Global Forward" VerticalAlignment="Center"/>
+          <Button x:Name="GlobalForwardText" Grid.Row="1" Grid.Column="1" PreviewKeyDown="ShortcutCapture_KeyDown" Click="BeginGlobalShortcutCapture_Click" Tag="GlobalForward" Margin="4" ToolTip="Click, then press a keyboard chord. Escape disables it."/>
+          <Button Grid.Row="1" Grid.Column="2" Content="Disable" Click="DisableShortcut_Click" Tag="GlobalForward"/>
+        </Grid>
+        <TextBlock Text="Add an app, then use its Back and Forward controls. Turn off Enabled to suspend gestures for that app; its row will be dimmed. Escape disables a direction; Backspace restores the global shortcut." TextWrapping="Wrap" Foreground="#666" Margin="0,0,0,8"/>
+        <DockPanel Margin="0,0,0,8">
+          <Button DockPanel.Dock="Right" Content="Add application" Padding="10,4" Click="AddApplication_Click"/>
+          <Button DockPanel.Dock="Right" Content="Browse…" Padding="10,4" Margin="0,0,6,0" Click="BrowseApplication_Click"/>
+          <TextBox x:Name="ShortcutProcessText" Margin="0,0,8,0" VerticalContentAlignment="Center" ToolTip="Process name, with or without .exe"/>
+        </DockPanel>
+        <Grid>
+          <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="150"/><ColumnDefinition Width="150"/><ColumnDefinition Width="75"/><ColumnDefinition Width="36"/></Grid.ColumnDefinitions>
+          <TextBlock Text="Application" FontWeight="SemiBold" Foreground="#666" Margin="6,4"/>
+          <TextBlock Grid.Column="1" Text="Back" FontWeight="SemiBold" Foreground="#666" Margin="6,4"/>
+          <TextBlock Grid.Column="2" Text="Forward" FontWeight="SemiBold" Foreground="#666" Margin="6,4"/>
+          <TextBlock Grid.Column="3" Text="Enabled" FontWeight="SemiBold" Foreground="#666" Margin="6,4"/>
+        </Grid>
+        <ScrollViewer Height="145" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+          <StackPanel x:Name="ShortcutRowsPanel"/>
+        </ScrollViewer>
+      </StackPanel>
+    </GroupBox>
+    <GroupBox Grid.Row="3" Header="Gesture sensitivity" Margin="0,12,0,0" Padding="12">
       <Grid>
         <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="110"/></Grid.ColumnDefinitions>
         <Grid.RowDefinitions>
@@ -40,7 +61,7 @@
         <TextBox x:Name="ClickThresholdTextBox" Grid.Row="3" Grid.Column="1" Margin="4"/>
       </Grid>
     </GroupBox>
-    <StackPanel Grid.Row="5" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
+    <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
       <Button Content="Cancel" Width="82" Margin="0,0,8,0" IsCancel="True"/>
       <Button Content="Save" Width="82" IsDefault="True" Click="Save_Click"/>
     </StackPanel>

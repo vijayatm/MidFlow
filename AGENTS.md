@@ -46,6 +46,7 @@ Move code gradually; do not perform a large rewrite or copy/rename the previous 
 8. Never claim a build or test passed without executing it.
 9. Explain the purpose of any new dependency.
 10. Avoid changes that increase idle CPU, input latency, memory use, or UI stalls without a clear reason.
+11. Never compromise usability for implementation convenience. Learn from established applications when shaping settings workflows; favor scannable lists, direct inline actions, clear capture and edit states, and obvious reset/disable behavior. Treat reference designs as interaction guidance, not a requirement to copy their visual branding.
 
 ## Roadmap
 

@@ -156,7 +156,8 @@ public partial class MainWindow : Window
             {
                 Interlocked.Increment(ref _pendingSamples);
                 _samples.Enqueue(sample);
-            }, () => AppSettings.IsEnabledForProcess(Volatile.Read(ref _foregroundProcessName)));
+            }, () => AppSettings.IsEnabledForProcess(Volatile.Read(ref _foregroundProcessName)),
+                () => AppSettings.ShortcutsForProcess(Volatile.Read(ref _foregroundProcessName)));
             _hook.Install();
         }
         catch (Exception ex)
@@ -447,9 +448,10 @@ internal sealed class LowLevelMouseHook : IDisposable
     private readonly NativeMethods.LowLevelMouseProc _callback;
     private readonly Action<MouseSample> _publish;
     private readonly Func<bool> _isEnabled;
+    private readonly Func<MidFlow.Core.Shortcuts.ShortcutPair> _getShortcuts;
     private readonly ManualResetEventSlim _ready = new(false);
     private readonly Thread _thread;
-    private readonly BlockingCollection<GestureAction> _actions = new(new ConcurrentQueue<GestureAction>());
+    private readonly BlockingCollection<QueuedAction> _actions = new(new ConcurrentQueue<QueuedAction>());
     private readonly Thread _actionThread;
     private IntPtr _handle;
     private uint _threadId;
@@ -458,10 +460,12 @@ internal sealed class LowLevelMouseHook : IDisposable
     private long _lastMoveLogTimestamp;
     private int _disposed;
 
-    internal LowLevelMouseHook(Action<MouseSample> publish, Func<bool> isEnabled)
+    internal LowLevelMouseHook(Action<MouseSample> publish, Func<bool> isEnabled,
+        Func<MidFlow.Core.Shortcuts.ShortcutPair> getShortcuts)
     {
         _publish = publish;
         _isEnabled = isEnabled;
+        _getShortcuts = getShortcuts;
         _callback = Callback;
         _thread = new Thread(HookThreadMain) { IsBackground = true, Name = "MidFlow.InputHook" };
         _actionThread = new Thread(ActionWorkerMain)
@@ -591,7 +595,16 @@ internal sealed class LowLevelMouseHook : IDisposable
                     // even when it is vertical, diagonal, too short, or too slow.
                     // Never call SendInput from WH_MOUSE_LL; queue actions and return.
                     if (action.HasValue)
-                        _actions.TryAdd(action.Value);
+                    {
+                        if (action == GestureAction.ReplayMiddleClick)
+                            _actions.TryAdd(new QueuedAction(action.Value, MidFlow.Core.Shortcuts.KeyboardShortcut.Disabled));
+                        else
+                        {
+                            var mapping = _getShortcuts();
+                            var shortcut = result.Direction == GestureDirection.Left ? mapping.Back : mapping.Forward;
+                            if (shortcut.Enabled) _actions.TryAdd(new QueuedAction(action.Value, shortcut));
+                        }
+                    }
 
                     var actionName = action?.ToString() ?? "SuppressedDrag";
                     DiagnosticLog.Write(
@@ -607,8 +620,9 @@ internal sealed class LowLevelMouseHook : IDisposable
 
     private void ActionWorkerMain()
     {
-        foreach (var action in _actions.GetConsumingEnumerable())
+        foreach (var request in _actions.GetConsumingEnumerable())
         {
+            var action = request.Action;
             var started = Stopwatch.GetTimestamp();
             var success = false;
             string error = "";
@@ -616,8 +630,7 @@ internal sealed class LowLevelMouseHook : IDisposable
             {
                 success = action switch
                 {
-                    GestureAction.Back => NativeMethods.TrySendAltArrow(NativeMethods.VkLeft, out error),
-                    GestureAction.Forward => NativeMethods.TrySendAltArrow(NativeMethods.VkRight, out error),
+                    GestureAction.Back or GestureAction.Forward => NativeMethods.TrySendShortcut(request.Shortcut, out error),
                     _ => NativeMethods.TryReplayMiddleClick(out error)
                 };
             }
@@ -670,6 +683,8 @@ internal sealed class LowLevelMouseHook : IDisposable
         GC.SuppressFinalize(this);
     }
 }
+
+internal sealed record QueuedAction(GestureAction Action, MidFlow.Core.Shortcuts.KeyboardShortcut Shortcut);
 
 internal static class DiagnosticLog
 {
@@ -778,12 +793,22 @@ internal static class NativeMethods
     [StructLayout(LayoutKind.Sequential)] private struct Input
     { public uint Type; public InputUnion Data; }
 
-    internal static bool TrySendAltArrow(ushort arrowKey, out string error)
+    internal static bool TrySendShortcut(MidFlow.Core.Shortcuts.KeyboardShortcut shortcut, out string error)
     {
-        var inputs = new[] { Key(VkMenu, false), Key(arrowKey, false), Key(arrowKey, true), Key(VkMenu, true) };
-        var sent = SendInput((uint)inputs.Length, inputs, Marshal.SizeOf<Input>());
-        error = sent == inputs.Length ? "" : new Win32Exception(Marshal.GetLastWin32Error()).Message;
-        return sent == inputs.Length;
+        var inputs = new List<Input>(8);
+        var modifiers = new List<ushort>(4);
+        if ((shortcut.Modifiers & MidFlow.Core.Shortcuts.ShortcutModifiers.Ctrl) != 0) modifiers.Add(0x11);
+        if ((shortcut.Modifiers & MidFlow.Core.Shortcuts.ShortcutModifiers.Alt) != 0) modifiers.Add(0x12);
+        if ((shortcut.Modifiers & MidFlow.Core.Shortcuts.ShortcutModifiers.Shift) != 0) modifiers.Add(0x10);
+        if ((shortcut.Modifiers & MidFlow.Core.Shortcuts.ShortcutModifiers.Win) != 0) modifiers.Add(0x5B);
+        foreach (var modifier in modifiers) inputs.Add(Key(modifier, false));
+        inputs.Add(Key(shortcut.Key, false));
+        inputs.Add(Key(shortcut.Key, true));
+        for (var index = modifiers.Count - 1; index >= 0; index--) inputs.Add(Key(modifiers[index], true));
+        var inputArray = inputs.ToArray();
+        var sent = SendInput((uint)inputArray.Length, inputArray, Marshal.SizeOf<Input>());
+        error = sent == inputArray.Length ? "" : new Win32Exception(Marshal.GetLastWin32Error()).Message;
+        return sent == inputArray.Length;
     }
     internal static bool TryReplayMiddleClick(out string error)
     {

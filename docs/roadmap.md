@@ -13,7 +13,7 @@ Phase 7 gesture sensitivity and per-application enable/disable profiles are reta
 - Validate mappings before saving and keep `SendInput` on the action worker.
 - Add core tests for mapping validation and action resolution as part of feature work.
 
-Phase 8 is not implemented yet.
+Phase 8 implementation: the Settings window records keyboard chords for global defaults and per-process overrides. Each app direction can inherit its global default or be overridden; Escape disables a mapping. Enable/disable profiles now appear in the same application list, and disabled apps are dimmed. Existing settings files retain the `Alt+Left` / `Alt+Right` defaults, and shortcut injection stays on the action worker.
 
 ## Later phases
 

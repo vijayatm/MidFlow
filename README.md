@@ -1,6 +1,6 @@
 # MidFlow
 
-MidFlow is a lightweight native Windows utility for middle-button mouse gestures. This repository is the Phase 7 baseline reorganized into an application project and a platform-independent core library. Phase 8 shortcut mappings have not been implemented.
+MidFlow is a lightweight native Windows utility for middle-button mouse gestures. The application includes configurable global and per-application keyboard shortcut mappings, alongside per-application gesture enable/disable profiles.
 
 ## Existing features
 
@@ -10,6 +10,8 @@ MidFlow is a lightweight native Windows utility for middle-button mouse gestures
 - Notification-area controls and a settings window.
 - Per-application enable/disable profiles.
 - Configurable gesture sensitivity and diagnostic logs.
+- Recordable global Back / Forward keyboard chords with per-application overrides.
+- A unified application shortcut list for per-app gesture enable/disable and Back / Forward mappings.
 
 ## Set up on Windows
 
@@ -43,12 +45,15 @@ The published files are under `src\MidFlow.App\bin\Release\net10.0-windows\win-x
 
 MidFlow continues to read and write `%APPDATA%\MouseFlow\settings.json` to preserve existing Phase 7 settings and profiles. The application name has changed; this settings location remains the legacy compatibility path.
 
+Keyboard shortcuts default to `Alt+Left` for Back and `Alt+Right` for Forward. In Settings, focus a shortcut field and press a chord to record it; press Escape to disable that mapping. Add an application by entering its process name or browsing to its `.exe`. Application overrides are independent by direction and inherit the global shortcut until you record or disable that direction. Existing settings files load with the default shortcuts.
+
 ## Repository layout
 
 ```text
 src/
   MidFlow.App/       WPF UI, tray integration, Win32 input, rendering, persistence
-  MidFlow.Core/      Platform-independent gesture recognition
+  MidFlow.Core/      Platform-independent gesture and shortcut rules
+  MidFlow.Core.Tests/ xUnit tests for shortcut resolution and validation
 docs/                Architecture and roadmap
 scripts/             Development scripts
 ```
