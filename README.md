@@ -36,10 +36,10 @@ The app appears in the Windows notification area. Use its tray icon to open sett
 To publish a Release build for 64-bit Windows:
 
 ```powershell
-dotnet publish .\src\MidFlow.App\MidFlow.App.csproj -c Release -r win-x64
+.\scripts\publish.ps1
 ```
 
-The published files are under `src\MidFlow.App\bin\Release\net10.0-windows\win-x64\publish`. This command creates a framework-dependent publish, so the target machine needs the .NET 10 Windows Desktop runtime. For development builds, no PowerShell execution-policy change is needed; the `dotnet build` command above runs directly.
+The distribution folder is `artifacts\win-x64`. The script creates a framework-dependent publish, so the target machine needs the .NET 10 Windows Desktop runtime. It removes only byte-identical build-output copies after publishing succeeds. For development builds, no PowerShell execution-policy change is needed; the `dotnet build` command above runs directly.
 
 ## Settings compatibility
 
