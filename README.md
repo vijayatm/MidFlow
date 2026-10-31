@@ -56,15 +56,15 @@ The repository includes `.github/workflows/release.yml`. Because the release job
    ```powershell
    git switch main
    git pull
-   git tag v7.1.1
-   git push origin v7.1.1
+   git tag v7.1.7
+   git push origin v7.1.7
    ```
 
-   The workflow runs for tags matching `v*`. The `v7.1.0` tag has already been used; choose the next version or another unused tag.
+   The workflow runs for tags matching `v*`. Use a new, unused version tag for each release.
 6. In GitHub, open **Actions** and wait for **Windows release** to finish. Then open **Releases** and select the release for that tag.
 7. Download `MidFlow-win-x64.zip` from the release's **Assets** section. Extract it and run `MidFlow.App.exe`.
 
-The workflow runs only on pushed version tags, but this is a public repository: never add pull request or other untrusted code workflows to this self-hosted runner. A self-hosted runner executes repository workflow code on your PC. The workflow builds a self-contained `win-x64` app, so users do not need to install the .NET runtime separately. The ZIP is a portable application package, not a setup wizard installer. The executable download is hosted as a GitHub Release asset; GitHub Packages is for registries such as NuGet and container images.
+The workflow runs only on pushed version tags, but this is a public repository: never add pull request or other untrusted code workflows to this self-hosted runner. A self-hosted runner executes repository workflow code on your PC. The workflow builds a compressed, self-contained `win-x64` single-file app without PDB debug symbols, so users do not need to install the .NET runtime separately. Compression can add a small startup cost. The ZIP is a portable application package, not a setup wizard installer. The executable download is hosted as a GitHub Release asset; GitHub Packages is for registries such as NuGet and container images.
 
 ## Settings compatibility
 
