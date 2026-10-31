@@ -13,15 +13,22 @@ public sealed record KeyboardShortcut(bool Enabled, ushort Key, ShortcutModifier
         (Modifiers & ~(ShortcutModifiers.Ctrl | ShortcutModifiers.Alt | ShortcutModifiers.Shift | ShortcutModifiers.Win)) == 0);
 }
 
-public sealed record ShortcutPair(KeyboardShortcut Back, KeyboardShortcut Forward)
+public sealed record ShortcutPair(KeyboardShortcut Back, KeyboardShortcut Forward,
+    KeyboardShortcut? Up = null, KeyboardShortcut? Down = null)
 {
-    public static ShortcutPair Defaults { get; } = new(KeyboardShortcut.DefaultBack, KeyboardShortcut.DefaultForward);
-    public bool IsValid => Back is not null && Forward is not null && Back.IsValid && Forward.IsValid;
+    public static ShortcutPair Defaults { get; } = new(KeyboardShortcut.DefaultBack,
+        KeyboardShortcut.DefaultForward, KeyboardShortcut.Disabled, KeyboardShortcut.Disabled);
+    public KeyboardShortcut UpOrDisabled => Up ?? KeyboardShortcut.Disabled;
+    public KeyboardShortcut DownOrDisabled => Down ?? KeyboardShortcut.Disabled;
+    public bool IsValid => Back is not null && Forward is not null && Back.IsValid && Forward.IsValid &&
+        (Up?.IsValid ?? true) && (Down?.IsValid ?? true);
 }
 
-public sealed record ShortcutOverride(KeyboardShortcut? Back, KeyboardShortcut? Forward)
+public sealed record ShortcutOverride(KeyboardShortcut? Back, KeyboardShortcut? Forward,
+    KeyboardShortcut? Up = null, KeyboardShortcut? Down = null)
 {
-    public bool IsValid => (Back?.IsValid ?? true) && (Forward?.IsValid ?? true);
+    public bool IsValid => (Back?.IsValid ?? true) && (Forward?.IsValid ?? true) &&
+        (Up?.IsValid ?? true) && (Down?.IsValid ?? true);
 }
 
 public static class ShortcutResolver
@@ -36,7 +43,8 @@ public static class ShortcutResolver
             var name = Path.GetFileNameWithoutExtension(processName.Trim());
             var match = overrides.FirstOrDefault(x => string.Equals(x.Key, name, StringComparison.OrdinalIgnoreCase));
             if (match.Value is not null)
-                return new ShortcutPair(match.Value.Back ?? global.Back, match.Value.Forward ?? global.Forward);
+                return new ShortcutPair(match.Value.Back ?? global.Back, match.Value.Forward ?? global.Forward,
+                    match.Value.Up ?? global.UpOrDisabled, match.Value.Down ?? global.DownOrDisabled);
         }
         return global;
     }

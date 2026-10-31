@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Merged directional shortcuts, app enablement, and custom shape management into one global and per-application gesture profile screen.
+- Added Up and Down directional recognition with independently configurable keyboard chords; both start disabled.
+- Added per-gesture app overrides, inherited state, and reset-to-global behavior for custom shapes.
 - Added recorded custom path gestures with global and per-application scopes, inheritance, and Back / Forward / application launch actions.
 - Added gesture previews, profile editing, bounded path capture, worker-side matching, and ambiguity checks.
 - Preserved existing horizontal Back / Forward defaults and legacy settings compatibility.

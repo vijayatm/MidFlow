@@ -278,9 +278,13 @@ public sealed class TrailSurface : FrameworkElement
     private static readonly Pen[] NeutralPens = CreatePens(Color.FromRgb(105, 170, 255), 220);
     private static readonly Pen[] BackPens = CreatePens(Color.FromRgb(183, 156, 255), 220);
     private static readonly Pen[] ForwardPens = CreatePens(Color.FromRgb(105, 190, 255), 220);
+    private static readonly Pen[] UpPens = CreatePens(Color.FromRgb(105, 205, 160), 220);
+    private static readonly Pen[] DownPens = CreatePens(Color.FromRgb(245, 175, 105), 220);
     private static readonly SolidColorBrush[] NeutralTips = CreateBrushes(Color.FromRgb(165, 205, 255), 235);
     private static readonly SolidColorBrush[] BackTips = CreateBrushes(Color.FromRgb(218, 199, 255), 235);
     private static readonly SolidColorBrush[] ForwardTips = CreateBrushes(Color.FromRgb(174, 220, 255), 235);
+    private static readonly SolidColorBrush[] UpTips = CreateBrushes(Color.FromRgb(175, 235, 205), 235);
+    private static readonly SolidColorBrush[] DownTips = CreateBrushes(Color.FromRgb(255, 215, 165), 235);
 
     private List<TrailPoint> _points = new();
     private long _now;
@@ -315,12 +319,16 @@ public sealed class TrailSurface : FrameworkElement
         {
             GestureDirection.Left => BackPens,
             GestureDirection.Right => ForwardPens,
+            GestureDirection.Up => UpPens,
+            GestureDirection.Down => DownPens,
             _ => NeutralPens
         };
         var tips = _direction switch
         {
             GestureDirection.Left => BackTips,
             GestureDirection.Right => ForwardTips,
+            GestureDirection.Up => UpTips,
+            GestureDirection.Down => DownTips,
             _ => NeutralTips
         };
 
@@ -600,7 +608,7 @@ internal sealed class LowLevelMouseHook : IDisposable
                         ? result.Reason == "TooSlow" ? null : GestureAction.MatchCustom
                         : GestureAction.ReplayMiddleClick;
 
-                    if (result.Direction is GestureDirection.Left or GestureDirection.Right)
+                    if (result.Direction != GestureDirection.None)
                         Publish(MouseEventKind.GestureFeedback, data.Point.X, data.Point.Y, result.Direction);
 
                     // Only a stationary MMB click is replayed. Any pointer movement
@@ -677,6 +685,8 @@ internal sealed class LowLevelMouseHook : IDisposable
             {
                 GestureDirection.Left => shortcuts.Back,
                 GestureDirection.Right => shortcuts.Forward,
+                GestureDirection.Up => shortcuts.UpOrDisabled,
+                GestureDirection.Down => shortcuts.DownOrDisabled,
                 _ => null
             };
             if (fallback is { Enabled: true }) return NativeMethods.TrySendShortcut(fallback, out error);
@@ -695,6 +705,14 @@ internal sealed class LowLevelMouseHook : IDisposable
                 var forward = _getShortcuts(processName).Forward;
                 if (!forward.Enabled) { error = "Forward shortcut is disabled."; return false; }
                 return NativeMethods.TrySendShortcut(forward, out error);
+            case GestureActionKind.Up:
+                var up = _getShortcuts(processName).UpOrDisabled;
+                if (!up.Enabled) { error = "Up shortcut is disabled."; return false; }
+                return NativeMethods.TrySendShortcut(up, out error);
+            case GestureActionKind.Down:
+                var down = _getShortcuts(processName).DownOrDisabled;
+                if (!down.Enabled) { error = "Down shortcut is disabled."; return false; }
+                return NativeMethods.TrySendShortcut(down, out error);
             case GestureActionKind.LaunchApplication:
                 var executable = match.Action.ApplicationPath;
                 if (string.IsNullOrWhiteSpace(executable) || !File.Exists(executable))

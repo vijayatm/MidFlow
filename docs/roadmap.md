@@ -2,29 +2,31 @@
 
 ## Current baseline
 
-Phase 7 gesture sensitivity and per-application enable/disable profiles are retained. The repository has been split into `MidFlow.App` and `MidFlow.Core`; only gesture recognition has moved into Core so far.
+Phase 7 gesture sensitivity and per-application enable/disable profiles are retained. The repository has been split into `MidFlow.App` and `MidFlow.Core`; gesture recognition, shortcut models, and profile resolution live in Core.
 
 ## Phase 8 — Per-application shortcut mappings
 
-- Configure independent left and right shortcut combinations.
-- Allow either direction to be disabled.
+- Configure independent directional keyboard chords.
+- Allow a directional binding to be disabled.
 - Provide global defaults and optional per-application overrides.
 - Preserve existing enable/disable profiles and legacy settings JSON.
 - Validate mappings before saving and keep `SendInput` on the action worker.
 - Add core tests for mapping validation and action resolution as part of feature work.
 
-Phase 8 implementation: the Settings window records keyboard chords for global defaults and per-process overrides. Each app direction can inherit its global default or be overridden; Escape disables a mapping. Enable/disable profiles now appear in the same application list, and disabled apps are dimmed. Existing settings files retain the `Alt+Left` / `Alt+Right` defaults, and shortcut injection stays on the action worker.
+Phase 8 began with global and per-application Back/Forward chord mappings. Existing settings retain the `Alt+Left` / `Alt+Right` defaults, and shortcut injection stays on the action worker.
 
 ## Phase 9 — Custom gestures and application profiles
 
+- Combine directional shortcuts, per-app enablement, and custom shapes in one gesture profile screen.
+- Support Left, Right, Up, and Down directional bindings. Keep Up and Down disabled by default.
 - Record and normalize custom paths while holding the middle mouse button.
-- Assign Back, Forward, or launch a user-selected executable.
-- Manage global gestures and per-application inherited or independent sets.
-- Show gesture previews, enabled state, and similarity warnings in Settings.
-- Match custom paths on the action worker; preserve default horizontal Back/Forward behavior when no custom path matches.
+- Assign Back, Forward, Up, Down, or launch a user-selected executable.
+- Manage global bindings and per-application inherited or independent overrides.
+- Show gesture previews, enabled state, inheritance, and similarity feedback in Settings.
+- Match custom paths on the action worker; preserve directional shortcut fallback when no custom path matches.
 - Keep stationary middle-click replay and suppression of slow or unrecognized drags.
-- Store optional gesture mappings in the existing JSON file without changing legacy defaults or path.
-- Add deterministic Core tests for normalization, matching, ambiguity, validation, and profile resolution.
+- Migrate old Back/Forward settings into the unified profile without changing the legacy path or defaults.
+- Add deterministic Core tests for four-way classification, normalization, matching, ambiguity, validation, and profile resolution.
 
 ## Later phases
 

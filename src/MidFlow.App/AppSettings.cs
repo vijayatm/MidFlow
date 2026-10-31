@@ -84,17 +84,24 @@ internal static class AppSettings
     {
         var globalItems = global.ToList();
         var profileItems = new Dictionary<string, GestureProfile>(StringComparer.OrdinalIgnoreCase);
-        if (globalItems.Any(g => !g.IsValid) || HasConflicts(globalItems))
+        if (globalItems.Any(g => !g.IsValid) || HasDuplicateIds(globalItems) || HasConflicts(globalItems))
             throw new ArgumentException("A global gesture is invalid or conflicts with another gesture.", nameof(global));
         foreach (var item in profiles)
         {
             var name = Path.GetFileNameWithoutExtension(item.Key.Trim());
-            if (string.IsNullOrWhiteSpace(name) || item.Value.Gestures.Any(g => !g.IsValid) || HasConflicts(item.Value.Gestures))
+            if (string.IsNullOrWhiteSpace(name) || item.Value.Gestures.Any(g => !g.IsValid) ||
+                HasDuplicateIds(item.Value.Gestures))
                 throw new ArgumentException("An application gesture mapping is invalid or conflicting.", nameof(profiles));
             profileItems[name] = item.Value with { Gestures = item.Value.Gestures.ToArray() };
         }
+        foreach (var item in profileItems)
+            if (HasConflicts(GestureResolver.Resolve(item.Key, globalItems, profileItems)))
+                throw new ArgumentException("An application gesture mapping conflicts with another active gesture.", nameof(profiles));
         lock (Sync) { _globalGestures = globalItems; _gestureProfiles = profileItems; }
     }
+
+    private static bool HasDuplicateIds(IReadOnlyList<GestureDefinition> gestures) =>
+        gestures.Select(g => g.Id).Distinct(StringComparer.OrdinalIgnoreCase).Count() != gestures.Count;
 
     private static bool HasConflicts(IReadOnlyList<GestureDefinition> gestures)
     {
@@ -108,6 +115,7 @@ internal static class AppSettings
     internal static void SetShortcuts(ShortcutPair global, IEnumerable<KeyValuePair<string, ShortcutOverride>> profiles)
     {
         if (!global.IsValid) throw new ArgumentException("The global shortcut mapping is invalid.", nameof(global));
+        global = global with { Up = global.UpOrDisabled, Down = global.DownOrDisabled };
         var updated = new Dictionary<string, ShortcutOverride>(StringComparer.OrdinalIgnoreCase);
         foreach (var item in profiles)
         {
@@ -164,8 +172,19 @@ internal static class AppSettings
                 .Select(x => new KeyValuePair<string, ShortcutOverride>(x.Key, x.Value!));
             if (global.IsValid && mappings.All(x => x.Value.IsValid)) SetShortcuts(global, mappings);
             var gestures = data.Gestures ?? [];
-            var gestureProfiles = (data.GestureProfiles ?? new()).Where(x => x.Value is not null)
-                .Select(x => new KeyValuePair<string, GestureProfile>(x.Key, x.Value!));
+            var oldProfiles = (data.GestureProfiles ?? new()).Where(x => x.Value is not null).ToList();
+            var gestureProfiles = oldProfiles.Select(x =>
+            {
+                var profile = x.Value!;
+                if (!profile.InheritGlobal)
+                {
+                    var local = profile.Gestures.ToDictionary(g => g.Id, StringComparer.OrdinalIgnoreCase);
+                    foreach (var inherited in gestures)
+                        local.TryAdd(inherited.Id, inherited with { Enabled = false });
+                    profile = new GestureProfile(true, local.Values.ToArray());
+                }
+                return new KeyValuePair<string, GestureProfile>(x.Key, profile);
+            });
             try { SetGestureMappings(gestures, gestureProfiles); }
             catch (ArgumentException) { DiagnosticLog.Write("SETTINGS invalidGestureMappings=true"); }
         }

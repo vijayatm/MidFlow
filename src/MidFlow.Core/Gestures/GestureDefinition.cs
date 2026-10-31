@@ -1,6 +1,6 @@
 namespace MidFlow.Core.Gestures;
 
-public enum GestureActionKind { Back, Forward, LaunchApplication }
+public enum GestureActionKind { Back = 0, Forward = 1, LaunchApplication = 2, Up = 3, Down = 4 }
 
 public sealed record GestureActionDefinition(GestureActionKind Kind, string? ApplicationPath = null);
 
@@ -27,7 +27,13 @@ public static class GestureResolver
         {
             var name = System.IO.Path.GetFileNameWithoutExtension(processName.Trim());
             var match = profiles.FirstOrDefault(x => string.Equals(x.Key, name, StringComparison.OrdinalIgnoreCase));
-            if (match.Value is { InheritGlobal: false } profile) return profile.Gestures;
+            if (match.Value is { } profile)
+            {
+                if (!profile.InheritGlobal) return profile.Gestures;
+                var merged = global.ToDictionary(g => g.Id, StringComparer.OrdinalIgnoreCase);
+                foreach (var local in profile.Gestures) merged[local.Id] = local;
+                return merged.Values.ToArray();
+            }
         }
         return global;
     }

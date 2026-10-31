@@ -32,4 +32,16 @@ public class ShortcutResolverTests
         Assert.True(KeyboardShortcut.Disabled.IsValid);
         Assert.False(new KeyboardShortcut(true, 0x41, (ShortcutModifiers)16).IsValid);
     }
+
+    [Fact]
+    public void VerticalShortcutsDefaultToDisabledAndCanBeOverriddenPerApplication()
+    {
+        Assert.False(ShortcutPair.Defaults.UpOrDisabled.Enabled);
+        Assert.False(ShortcutPair.Defaults.DownOrDisabled.Enabled);
+        var up = new KeyboardShortcut(true, 0x26, ShortcutModifiers.Ctrl);
+        var resolved = ShortcutResolver.Resolve("browser.exe", ShortcutPair.Defaults,
+            new Dictionary<string, ShortcutOverride> { ["browser"] = new ShortcutOverride(null, null, up, null) });
+        Assert.Equal(up, resolved.Up);
+        Assert.Equal(KeyboardShortcut.Disabled, resolved.DownOrDisabled);
+    }
 }

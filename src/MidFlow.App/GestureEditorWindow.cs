@@ -38,6 +38,8 @@ internal sealed class GestureEditorWindow : Window
         ResizeMode = ResizeMode.NoResize;
         _action.Items.Add(new ActionItem("Back", GestureActionKind.Back));
         _action.Items.Add(new ActionItem("Forward", GestureActionKind.Forward));
+        _action.Items.Add(new ActionItem("Up", GestureActionKind.Up));
+        _action.Items.Add(new ActionItem("Down", GestureActionKind.Down));
         _action.Items.Add(new ActionItem("Launch application", GestureActionKind.LaunchApplication));
         _action.SelectionChanged += (_, _) => UpdateActionControls();
         _browse.Click += Browse_Click;
@@ -136,10 +138,13 @@ internal sealed class GestureEditorWindow : Window
             _status.Text = _path is null
                 ? "That movement was too short to save. Record again and draw a larger, distinct shape."
                 : "Gesture captured. Review the preview, then save.";
-            if (_path is { IsValid: true } &&
-                Math.Abs(_path.Points[^1].X - _path.Points[0].X) >
-                Math.Abs(_path.Points[^1].Y - _path.Points[0].Y) * 1.5)
-                _status.Text += " Similar horizontal drags will use this custom action before Back/Forward.";
+            if (_path is { IsValid: true })
+            {
+                var dx = Math.Abs(_path.Points[^1].X - _path.Points[0].X);
+                var dy = Math.Abs(_path.Points[^1].Y - _path.Points[0].Y);
+                if (Math.Max(dx, dy) > Math.Min(dx, dy) * 1.5)
+                    _status.Text += " Similar directional drags will use this custom action before the built-in mapping.";
+            }
             DrawPreview();
         });
     }

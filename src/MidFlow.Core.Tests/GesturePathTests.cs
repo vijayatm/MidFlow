@@ -6,6 +6,12 @@ namespace MidFlow.Core.Tests;
 public class GesturePathTests
 {
     [Fact]
+    public void ExistingLaunchActionJsonValueRemainsCompatible()
+    {
+        Assert.Equal(2, (int)GestureActionKind.LaunchApplication);
+    }
+
+    [Fact]
     public void SamePathAtDifferentPositionAndScaleMatches()
     {
         var original = GesturePath.Create(Circle(120, 300, 200));
@@ -39,17 +45,32 @@ public class GesturePathTests
     }
 
     [Fact]
-    public void AppProfileCanInheritOrReplaceGlobalMappings()
+    public void AppProfileCanOverrideOneGlobalGestureAndAddAnother()
+    {
+        var global = Definition("global", Circle(100, 0, 0));
+        var appOverride = global with { Action = new GestureActionDefinition(GestureActionKind.Forward) };
+        var appOnly = Definition("app", Zigzag());
+        var profiles = new Dictionary<string, GestureProfile>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["browser"] = new GestureProfile(true, [appOverride, appOnly])
+        };
+
+        var resolved = GestureResolver.Resolve("BROWSER.exe", [global], profiles);
+        Assert.Equal(2, resolved.Count);
+        Assert.Equal(GestureActionKind.Forward, resolved.Single(x => x.Id == "global").Action.Kind);
+        Assert.Contains(resolved, x => x.Id == "app");
+    }
+
+    [Fact]
+    public void LegacyIndependentApplicationGestureSetStillReplacesGlobal()
     {
         var global = Definition("global", Circle(100, 0, 0));
         var app = Definition("app", Zigzag());
         var profiles = new Dictionary<string, GestureProfile>(StringComparer.OrdinalIgnoreCase)
         {
-            ["browser"] = new GestureProfile(true, [app])
+            ["browser"] = new GestureProfile(false, [app])
         };
 
-        Assert.Same(global, Assert.Single(GestureResolver.Resolve("BROWSER.exe", [global], profiles)));
-        profiles["browser"] = new GestureProfile(false, [app]);
         Assert.Same(app, Assert.Single(GestureResolver.Resolve("browser", [global], profiles)));
     }
 
@@ -62,6 +83,20 @@ public class GesturePathTests
 
         Assert.NotNull(input);
         Assert.Null(GestureResolver.Match(input!, [first, second]));
+    }
+
+    [Fact]
+    public void DisabledAppOverrideShadowsGlobalShapeUntilReset()
+    {
+        var global = Definition("global", Circle(100, 0, 0));
+        var profiles = new Dictionary<string, GestureProfile>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["browser"] = new GestureProfile(true, [global with { Enabled = false }])
+        };
+
+        Assert.False(Assert.Single(GestureResolver.Resolve("browser", [global], profiles)).Enabled);
+        profiles["browser"] = GestureProfile.Inherited;
+        Assert.True(Assert.Single(GestureResolver.Resolve("browser", [global], profiles)).Enabled);
     }
 
     private static GestureDefinition Definition(string id, IReadOnlyList<GesturePoint> source) =>

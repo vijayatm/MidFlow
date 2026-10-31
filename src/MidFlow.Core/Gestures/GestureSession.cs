@@ -2,7 +2,7 @@ using System.Diagnostics;
 
 namespace MidFlow.Core.Gestures;
 
-public enum GestureDirection { None, Left, Right }
+public enum GestureDirection { None, Left, Right, Up, Down }
 
 public sealed class GestureSession
 {
@@ -19,7 +19,7 @@ public sealed class GestureSession
     private readonly int _minimumHorizontalMovementPx;
     private readonly int _maximumVerticalMovementPx;
     private readonly int _maximumGestureDurationMs;
-    private const double HorizontalDominanceRatio = 1.5;
+    private const double AxisDominanceRatio = 1.5;
 
     public bool HasDragged => _hasDragged;
 
@@ -72,18 +72,20 @@ public sealed class GestureSession
         var absY = Math.Abs(dy);
         var duration = Stopwatch.GetElapsedTime(_startedAt).TotalMilliseconds;
 
-        // Classify net displacement, allowing natural hand drift while requiring
-        // a clearly horizontal gesture. HasDragged separately ensures rejected
-        // drags are consumed rather than replayed as native middle-button clicks.
+        // Classify net displacement on either axis while allowing bounded cross-axis drift.
+        // HasDragged separately ensures rejected drags remain consumed.
         if (duration > _maximumGestureDurationMs)
             return (GestureDirection.None, dx, dy, duration, "TooSlow");
-        if (absX < _minimumHorizontalMovementPx)
+        if (Math.Max(absX, absY) < _minimumHorizontalMovementPx)
             return (GestureDirection.None, dx, dy, duration, "HorizontalDistanceTooShort");
-        if (absY > _maximumVerticalMovementPx)
-            return (GestureDirection.None, dx, dy, duration, "VerticalDriftTooLarge");
-        if (absX < absY * HorizontalDominanceRatio)
-            return (GestureDirection.None, dx, dy, duration, "NotHorizontalDominant");
+        if (absX >= _minimumHorizontalMovementPx && absY <= _maximumVerticalMovementPx && absX >= absY * AxisDominanceRatio)
+            return (dx < 0 ? GestureDirection.Left : GestureDirection.Right, dx, dy, duration, "Recognized");
+        if (absY >= _minimumHorizontalMovementPx && absX <= _maximumVerticalMovementPx && absY >= absX * AxisDominanceRatio)
+            return (dy < 0 ? GestureDirection.Up : GestureDirection.Down, dx, dy, duration, "Recognized");
+        if (absX > _maximumVerticalMovementPx && absY < _minimumHorizontalMovementPx ||
+            absY > _maximumVerticalMovementPx && absX < _minimumHorizontalMovementPx)
+            return (GestureDirection.None, dx, dy, duration, "CrossAxisDriftTooLarge");
 
-        return (dx < 0 ? GestureDirection.Left : GestureDirection.Right, dx, dy, duration, "Recognized");
+        return (GestureDirection.None, dx, dy, duration, "NotAxisDominant");
     }
 }

@@ -1,19 +1,19 @@
 # MidFlow
 
-MidFlow is a lightweight native Windows utility for middle-button mouse gestures. The application includes configurable global and per-application keyboard shortcut mappings, alongside per-application gesture enable/disable profiles.
+MidFlow is a lightweight native Windows utility for middle-button mouse gestures. One profile screen configures global and per-application directional shortcuts, custom shapes, and app enablement.
 
 ## Existing features
 
-- Global middle-button Back and Forward gestures.
+- Global middle-button Left/Back, Right/Forward, Up, and Down gestures.
 - Stationary middle-click replay and suppression of unrecognized drags.
 - Transparent cursor-trail overlay with direction feedback.
 - Notification-area controls and a settings window.
 - Per-application enable/disable profiles.
 - Configurable gesture sensitivity and diagnostic logs.
 - Recordable global Back / Forward keyboard chords with per-application overrides.
-- A unified application shortcut list for per-app gesture enable/disable and Back / Forward mappings.
+- Unified global and per-application gesture profiles for directional shortcuts and custom shapes.
 - Recordable custom mouse paths with global or per-application scope.
-- Custom gesture actions for Back, Forward, or launching a selected application.
+- Custom gesture actions for Back, Forward, Up, Down, or launching a selected application.
 
 ## Set up on Windows
 
@@ -33,7 +33,7 @@ MidFlow is a native Windows desktop application. To build and run it from source
    dotnet run --project .\src\MidFlow.App\MidFlow.App.csproj
    ```
 
-The app appears in the Windows notification area. Use its tray icon to open settings or exit. Middle-button horizontal drags trigger Back and Forward gestures when enabled. Windows may hide the icon in the overflow area.
+The app appears in the Windows notification area. Use its tray icon to open settings or exit. Middle-button drags trigger configured directional or custom gestures when enabled. Windows may hide the icon in the overflow area.
 
 To publish a Release build for 64-bit Windows:
 
@@ -49,7 +49,7 @@ MidFlow continues to read and write `%APPDATA%\MouseFlow\settings.json` to prese
 
 Keyboard shortcuts default to `Alt+Left` for Back and `Alt+Right` for Forward. In Settings, focus a shortcut field and press a chord to record it; press Escape to disable that mapping. Add an application by entering its process name or browsing to its `.exe`. Application overrides are independent by direction and inherit the global shortcut until you record or disable that direction. Existing settings files load with the default shortcuts.
 
-Open **Manage custom gestures** in Settings to record a path while holding the middle mouse button. Choose a global or application scope, name the gesture, and assign Back, Forward, or Launch application. App scopes inherit the global gesture set until you choose **Customize for this app**; that creates an independent copy for the app. Similar gestures in the same scope are rejected to avoid ambiguous matches. Custom matches are checked before the built-in horizontal Back/Forward gestures, which remain the fallback when no custom path matches. A stationary middle click is still replayed, and slow or unrecognized drags remain suppressed.
+Open **Gestures & shortcuts** in Settings and select **Global defaults** or an application profile. Configure a keyboard chord for Left/Back, Right/Forward, Up, and Down; Up and Down start disabled. App profiles inherit each directional shortcut independently, and the app enable switch suspends all gesture actions for that app. Use **Add custom shape** to record a path while holding the middle mouse button, preview it, and map it to Back, Forward, Up, Down, or launch an application. Global shapes are inherited by apps; edit or disable one in an app to create an override, or reset it to return to the global binding. Similar active shapes in the same profile are rejected to avoid ambiguous matches. Custom shapes are checked before directional gestures. A stationary middle click is still replayed, and slow or unrecognized drags remain suppressed.
 
 ## Repository layout
 
@@ -57,7 +57,7 @@ Open **Manage custom gestures** in Settings to record a path while holding the m
 src/
   MidFlow.App/       WPF UI, tray integration, Win32 input, rendering, persistence
   MidFlow.Core/      Platform-independent gesture and shortcut rules
-  MidFlow.Core.Tests/ xUnit tests for shortcut resolution and validation
+  MidFlow.Core.Tests/ xUnit tests for gesture classification, profile resolution, and shortcut validation
 docs/                Architecture and roadmap
 scripts/             Development scripts
 ```
