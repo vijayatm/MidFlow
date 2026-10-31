@@ -14,6 +14,7 @@ using Color = System.Windows.Media.Color;
 using Pen = System.Windows.Media.Pen;
 using Application = System.Windows.Application;
 using MessageBox = System.Windows.MessageBox;
+using Canvas = System.Windows.Controls.Canvas;
 
 namespace MidFlow.App;
 
@@ -36,14 +37,23 @@ public partial class MainWindow : Window
     private int _foregroundProcessId;
     private readonly Drawing.Icon _trayIconImage;
     private readonly System.Windows.Threading.DispatcherTimer _foregroundTimer;
+    private readonly System.Windows.Threading.DispatcherTimer _feedbackTimer;
     private readonly Forms.NotifyIcon _trayIcon;
     private readonly Forms.ToolStripMenuItem _enabledMenuItem;
     private readonly Forms.ToolStripMenuItem _trailMenuItem;
+    private readonly Forms.ToolStripMenuItem _foregroundProfileMenuItem;
+    private readonly Forms.ToolStripMenuItem _createForegroundProfileMenuItem;
 
     public MainWindow()
     {
         InitializeComponent();
         DiagnosticLog.Start();
+        _feedbackTimer = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromMilliseconds(1500) };
+        _feedbackTimer.Tick += (_, _) =>
+        {
+            _feedbackTimer.Stop();
+            ResultFeedback.Visibility = Visibility.Collapsed;
+        };
         _foregroundTimer = new System.Windows.Threading.DispatcherTimer
         {
             Interval = TimeSpan.FromMilliseconds(250)
@@ -73,9 +83,16 @@ public partial class MainWindow : Window
             ApplySettings();
         };
 
+        _foregroundProfileMenuItem = new Forms.ToolStripMenuItem("Foreground: waiting for an app") { Enabled = false };
+        _createForegroundProfileMenuItem = new Forms.ToolStripMenuItem("Create profile for foreground app");
+        _createForegroundProfileMenuItem.Click += (_, _) => OpenSettingsForForegroundApp();
+
         var menu = new Forms.ContextMenuStrip();
         menu.Items.Add(_enabledMenuItem);
         menu.Items.Add(_trailMenuItem);
+        menu.Items.Add(new Forms.ToolStripSeparator());
+        menu.Items.Add(_foregroundProfileMenuItem);
+        menu.Items.Add(_createForegroundProfileMenuItem);
         menu.Items.Add(new Forms.ToolStripSeparator());
         menu.Items.Add("Settings...", null, (_, _) => OpenSettings());
         menu.Items.Add("Open log folder", null, (_, _) => AppSettings.OpenLogFolder());
@@ -113,6 +130,7 @@ public partial class MainWindow : Window
         {
             CompositionTarget.Rendering -= OnCompositionRendering;
             _foregroundTimer.Stop();
+            _feedbackTimer.Stop();
             AppSettings.Changed -= ApplySettings;
             _trayIcon.Visible = false;
             _trayIcon.Dispose();
@@ -131,26 +149,59 @@ public partial class MainWindow : Window
         _foregroundProcessId = (int)processId;
         try
         {
-            Volatile.Write(ref _foregroundProcessName, Process.GetProcessById((int)processId).ProcessName);
+            var processName = Process.GetProcessById((int)processId).ProcessName;
+            Volatile.Write(ref _foregroundProcessName, processName);
+            UpdateForegroundProfileMenu(processName);
         }
         catch
         {
             Volatile.Write(ref _foregroundProcessName, string.Empty);
+            UpdateForegroundProfileMenu(string.Empty);
         }
+    }
+
+    private void UpdateForegroundProfileMenu(string processName)
+    {
+        _createForegroundProfileMenuItem.Enabled = !string.IsNullOrWhiteSpace(processName);
+        if (string.IsNullOrWhiteSpace(processName))
+        {
+            _foregroundProfileMenuItem.Text = "Foreground: unavailable";
+            _foregroundProfileMenuItem.ToolTipText = "Windows did not report a foreground application.";
+            _createForegroundProfileMenuItem.Text = "Create profile for foreground app";
+            return;
+        }
+        var enabled = AppSettings.IsEnabledForProcess(processName);
+        var profile = AppSettings.HasApplicationProfile(processName) ? "app profile" : "global settings";
+        _foregroundProfileMenuItem.Text = $"Foreground: {processName} · {(enabled ? "gestures on" : "gestures off")} · {profile}";
+        _foregroundProfileMenuItem.ToolTipText = $"{processName} uses {profile}; gestures are {(enabled ? "enabled" : "disabled")}.";
+        _createForegroundProfileMenuItem.Text = AppSettings.HasApplicationProfile(processName)
+            ? $"Open {processName} profile"
+            : $"Create profile for {processName}";
     }
 
     private void ApplySettings()
     {
         TrailSurface.Visibility = AppSettings.ShowTrail ? Visibility.Visible : Visibility.Hidden;
+        TrailSurface.ReduceEffects = AppSettings.ReduceVisualEffects;
+        if (!AppSettings.ShowResultFeedback) ResultFeedback.Visibility = Visibility.Collapsed;
         if (_enabledMenuItem.Checked != AppSettings.GesturesEnabled)
             _enabledMenuItem.Checked = AppSettings.GesturesEnabled;
         if (_trailMenuItem.Checked != AppSettings.ShowTrail)
             _trailMenuItem.Checked = AppSettings.ShowTrail;
+        UpdateForegroundProfileMenu(Volatile.Read(ref _foregroundProcessName));
     }
 
     private void OpenSettings()
     {
         var settings = new SettingsWindow();
+        settings.ShowDialog();
+    }
+
+    private void OpenSettingsForForegroundApp()
+    {
+        var processName = Volatile.Read(ref _foregroundProcessName);
+        if (string.IsNullOrWhiteSpace(processName)) return;
+        var settings = new SettingsWindow(processName, createProfile: true);
         settings.ShowDialog();
     }
 
@@ -236,6 +287,9 @@ public partial class MainWindow : Window
                     TrailSurface.SetDirection(sample.Direction);
                     changed = true;
                     break;
+                case MouseEventKind.ResultFeedback when AppSettings.ShowResultFeedback:
+                    ShowResultFeedback(local, sample.FeedbackText);
+                    break;
             }
         }
 
@@ -267,12 +321,30 @@ public partial class MainWindow : Window
         }
     }
 
+    private void ShowResultFeedback(Point cursor, string? message)
+    {
+        ResultFeedbackText.Text = message ?? "Gesture complete";
+        ResultFeedback.Opacity = 1;
+        ResultFeedback.Visibility = Visibility.Visible;
+        ResultFeedback.Measure(new System.Windows.Size(ActualWidth, ActualHeight));
+        var width = ResultFeedback.DesiredSize.Width;
+        var height = ResultFeedback.DesiredSize.Height;
+        var left = cursor.X + 14;
+        var top = cursor.Y + 14;
+        if (left + width > ActualWidth) left = cursor.X - width - 14;
+        if (top + height > ActualHeight) top = cursor.Y - height - 14;
+        Canvas.SetLeft(ResultFeedback, Math.Clamp(left, 0, Math.Max(0, ActualWidth - width)));
+        Canvas.SetTop(ResultFeedback, Math.Clamp(top, 0, Math.Max(0, ActualHeight - height)));
+        _feedbackTimer.Stop();
+        _feedbackTimer.Start();
+    }
+
 }
 
 internal readonly record struct TrailPoint(Point Position, long Timestamp);
-internal enum MouseEventKind { Move, MiddleDown, MiddleUp, GestureFeedback }
+internal enum MouseEventKind { Move, MiddleDown, MiddleUp, GestureFeedback, ResultFeedback }
 internal readonly record struct MouseSample(
-    MouseEventKind Kind, int X, int Y, long Timestamp, GestureDirection Direction = GestureDirection.None);
+    MouseEventKind Kind, int X, int Y, long Timestamp, GestureDirection Direction = GestureDirection.None, string? FeedbackText = null);
 // One retained-mode WPF drawing surface. Pens/brushes are cached and frozen;
 // a Catmull-Rom interpolation smooths the sampled pointer path without adding UI controls.
 public sealed class TrailSurface : FrameworkElement
@@ -291,6 +363,7 @@ public sealed class TrailSurface : FrameworkElement
     private static readonly SolidColorBrush[] ForwardTips = CreateBrushes(Color.FromRgb(174, 220, 255), 235);
     private static readonly SolidColorBrush[] UpTips = CreateBrushes(Color.FromRgb(175, 235, 205), 235);
     private static readonly SolidColorBrush[] DownTips = CreateBrushes(Color.FromRgb(255, 215, 165), 235);
+    private static readonly Pen ReducedPen = CreateReducedPen();
 
     private List<TrailPoint> _points = new();
     private long _now;
@@ -303,6 +376,7 @@ public sealed class TrailSurface : FrameworkElement
     private double _renderDurationSumMs;
     private double _renderDurationMaxMs;
     private int _renderCount;
+    internal bool ReduceEffects { get; set; }
 
     internal void SetTrail(List<TrailPoint> points, long now)
     {
@@ -320,6 +394,14 @@ public sealed class TrailSurface : FrameworkElement
         var renderStarted = Stopwatch.GetTimestamp();
         base.OnRender(dc);
         if (_points.Count == 0) return;
+
+        if (ReduceEffects)
+        {
+            for (var i = 0; i < _points.Count - 1; i++)
+                dc.DrawLine(ReducedPen, _points[i].Position, _points[i + 1].Position);
+            RecordRenderDuration(Stopwatch.GetElapsedTime(renderStarted).TotalMilliseconds);
+            return;
+        }
 
         var pens = _direction switch
         {
@@ -443,6 +525,13 @@ public sealed class TrailSurface : FrameworkElement
         return result;
     }
 
+    private static Pen CreateReducedPen()
+    {
+        var pen = new Pen(new SolidColorBrush(Color.FromArgb(150, 130, 170, 220)), 1.5);
+        pen.Freeze();
+        return pen;
+    }
+
     private static SolidColorBrush[] CreateBrushes(Color color, byte maximumAlpha)
     {
         var result = new SolidColorBrush[FadeBuckets];
@@ -564,6 +653,13 @@ internal sealed class LowLevelMouseHook : IDisposable
         if ((data.Flags & NativeMethods.LlmhfInjected) != 0)
             return NativeMethods.CallNextHookEx(_handle, code, wParam, lParam);
 
+        if (AppSettings.GesturePracticeActive)
+        {
+            _session = null;
+            _recordGestureSession = false;
+            return NativeMethods.CallNextHookEx(_handle, code, wParam, lParam);
+        }
+
         // When disabled, pass all physical input through. If a gesture is already
         // active, finish consuming it to avoid an unmatched middle-button release.
         if (_session is null && !_isEnabled() && !AppSettings.GestureCapturePending)
@@ -616,6 +712,8 @@ internal sealed class LowLevelMouseHook : IDisposable
 
                     if (result.Direction != GestureDirection.None)
                         Publish(MouseEventKind.GestureFeedback, data.Point.X, data.Point.Y, result.Direction);
+                    if (session.HasDragged && result.Reason == "TooSlow" && AppSettings.ShowResultFeedback)
+                        PublishFeedback(data.Point.X, data.Point.Y, "Gesture took too long");
 
                     // Only a stationary MMB click is replayed. Any pointer movement
                     // beyond click jitter is treated as a drag and remains consumed,
@@ -627,11 +725,13 @@ internal sealed class LowLevelMouseHook : IDisposable
                             MidFlow.Core.Shortcuts.KeyboardShortcut.Disabled,
                             RawPoints: session.GetRecordedPoints(),
                             ProcessName: _getForegroundProcess(),
-                            FallbackDirection: result.Direction));
+                            FallbackDirection: result.Direction,
+                            ReleaseX: data.Point.X, ReleaseY: data.Point.Y));
                     }
                     else if (action == GestureAction.ReplayMiddleClick)
                     {
-                        _actions.TryAdd(new QueuedAction(action.Value, MidFlow.Core.Shortcuts.KeyboardShortcut.Disabled));
+                        _actions.TryAdd(new QueuedAction(action.Value, MidFlow.Core.Shortcuts.KeyboardShortcut.Disabled,
+                            ReleaseX: data.Point.X, ReleaseY: data.Point.Y));
                     }
 
                     var actionName = action == GestureAction.MatchCustom ? "CustomMatchQueued" : action?.ToString() ?? "SuppressedDrag";
@@ -654,13 +754,14 @@ internal sealed class LowLevelMouseHook : IDisposable
             var started = Stopwatch.GetTimestamp();
             var success = false;
             string error = "";
+            string outcome = "";
             try
             {
                 success = action switch
                 {
                     GestureAction.Back or GestureAction.Forward => NativeMethods.TrySendShortcut(request.Shortcut, out error),
                     GestureAction.ReplayMiddleClick => NativeMethods.TryReplayMiddleClick(out error),
-                    GestureAction.MatchCustom => ExecuteCustomGesture(request, out error),
+                    GestureAction.MatchCustom => ExecuteCustomGesture(request, out error, out outcome),
                     _ => false
                 };
             }
@@ -668,6 +769,11 @@ internal sealed class LowLevelMouseHook : IDisposable
             {
                 error = ex.Message;
             }
+            if (action == GestureAction.ReplayMiddleClick) outcome = success ? "Middle click replayed" : "Middle click could not be replayed";
+            if (action is GestureAction.Back or GestureAction.Forward) outcome = success ? $"{action} action sent" : (error.Length > 0 ? error : "Action failed");
+            if (action == GestureAction.MatchCustom && string.IsNullOrEmpty(outcome)) outcome = success ? "Gesture action complete" : (error.Length > 0 ? error : "No matching action");
+            if (AppSettings.ShowResultFeedback && outcome.Length > 0)
+                PublishFeedback(request.ReleaseX, request.ReleaseY, outcome);
 
             var duration = Stopwatch.GetElapsedTime(started).TotalMilliseconds;
             DiagnosticLog.Write(
@@ -676,8 +782,9 @@ internal sealed class LowLevelMouseHook : IDisposable
         }
     }
 
-    private bool ExecuteCustomGesture(QueuedAction request, out string error)
+    private bool ExecuteCustomGesture(QueuedAction request, out string error, out string feedback)
     {
+        feedback = "";
         error = "No matching custom gesture.";
         var path = request.RawPoints is null ? null : GesturePath.Create(request.RawPoints);
         var processName = request.ProcessName ?? string.Empty;
@@ -695,9 +802,15 @@ internal sealed class LowLevelMouseHook : IDisposable
                 GestureDirection.Down => shortcuts.DownOrDisabled,
                 _ => null
             };
-            if (fallback is { Enabled: true }) return NativeMethods.TrySendShortcut(fallback, out error);
+            if (fallback is { Enabled: true })
+            {
+                var sent = NativeMethods.TrySendShortcut(fallback, out error);
+                feedback = sent ? $"{request.FallbackDirection} shortcut sent" : error;
+                return sent;
+            }
             if (fallback is null) error = "";
             else error = "The resolved direction shortcut is disabled.";
+            feedback = error.Length == 0 ? "Gesture was too ambiguous" : "Direction shortcut is disabled";
             return false;
         }
         DiagnosticLog.Write($"GESTURE_MATCH id={match.Id} action={match.Action.Kind} process={processName}");
@@ -706,25 +819,34 @@ internal sealed class LowLevelMouseHook : IDisposable
             case GestureActionKind.Back:
                 var back = _getShortcuts(processName).Back;
                 if (!back.Enabled) { error = "Back shortcut is disabled."; return false; }
-                return NativeMethods.TrySendShortcut(back, out error);
+                var backSent = NativeMethods.TrySendShortcut(back, out error);
+                feedback = backSent ? $"{match.Name}: Back" : error;
+                return backSent;
             case GestureActionKind.Forward:
                 var forward = _getShortcuts(processName).Forward;
                 if (!forward.Enabled) { error = "Forward shortcut is disabled."; return false; }
-                return NativeMethods.TrySendShortcut(forward, out error);
+                var forwardSent = NativeMethods.TrySendShortcut(forward, out error);
+                feedback = forwardSent ? $"{match.Name}: Forward" : error;
+                return forwardSent;
             case GestureActionKind.Up:
                 var up = _getShortcuts(processName).UpOrDisabled;
                 if (!up.Enabled) { error = "Up shortcut is disabled."; return false; }
-                return NativeMethods.TrySendShortcut(up, out error);
+                var upSent = NativeMethods.TrySendShortcut(up, out error);
+                feedback = upSent ? $"{match.Name}: Up" : error;
+                return upSent;
             case GestureActionKind.Down:
                 var down = _getShortcuts(processName).DownOrDisabled;
                 if (!down.Enabled) { error = "Down shortcut is disabled."; return false; }
-                return NativeMethods.TrySendShortcut(down, out error);
+                var downSent = NativeMethods.TrySendShortcut(down, out error);
+                feedback = downSent ? $"{match.Name}: Down" : error;
+                return downSent;
             case GestureActionKind.LaunchApplication:
                 var executable = match.Action.ApplicationPath;
                 if (string.IsNullOrWhiteSpace(executable) || !File.Exists(executable))
                 { error = "The application file no longer exists."; return false; }
                 Process.Start(new ProcessStartInfo(executable) { UseShellExecute = false });
                 error = "";
+                feedback = $"{match.Name}: application launched";
                 return true;
             default:
                 error = "Unsupported gesture action.";
@@ -746,6 +868,9 @@ internal sealed class LowLevelMouseHook : IDisposable
                 $"ticks={timestamp}");
         }
     }
+
+    private void PublishFeedback(int x, int y, string message) =>
+        _publish(new MouseSample(MouseEventKind.ResultFeedback, x, y, Stopwatch.GetTimestamp(), FeedbackText: message));
 
     public void Dispose()
     {
@@ -772,7 +897,7 @@ internal sealed class LowLevelMouseHook : IDisposable
 
 internal sealed record QueuedAction(GestureAction Action, MidFlow.Core.Shortcuts.KeyboardShortcut Shortcut,
     IReadOnlyList<GesturePoint>? RawPoints = null, string? ProcessName = null,
-    GestureDirection FallbackDirection = GestureDirection.None);
+    GestureDirection FallbackDirection = GestureDirection.None, int ReleaseX = 0, int ReleaseY = 0);
 
 internal static class DiagnosticLog
 {

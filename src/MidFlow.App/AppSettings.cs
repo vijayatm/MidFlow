@@ -14,20 +14,28 @@ internal static class AppSettings
     private static readonly string SettingsPath = Path.Combine(DirectoryPath, "settings.json");
     private static int _gesturesEnabled = 1;
     private static int _showTrail = 1;
+    private static int _showResultFeedback;
+    private static int _reduceVisualEffects;
     private static int _minimumHorizontalMovementPx = 70;
     private static int _maximumVerticalMovementPx = 120;
     private static int _maximumGestureDurationMs = 1000;
     private static int _clickMovementThresholdPx = 5;
+    private static bool _welcomeCompleted = true;
     private static Dictionary<string, bool> _profiles = new(StringComparer.OrdinalIgnoreCase);
+    private static Dictionary<string, string> _applicationPaths = new(StringComparer.OrdinalIgnoreCase);
     private static ShortcutPair _globalShortcuts = ShortcutPair.Defaults;
     private static Dictionary<string, ShortcutOverride> _shortcutProfiles = new(StringComparer.OrdinalIgnoreCase);
     private static List<GestureDefinition> _globalGestures = [];
     private static Dictionary<string, GestureProfile> _gestureProfiles = new(StringComparer.OrdinalIgnoreCase);
     private static int _gestureCaptureRequested;
+    private static int _gesturePracticeActive;
 
     internal static event Action? Changed;
     internal static event Action<IReadOnlyList<GesturePoint>>? GestureCaptured;
     internal static bool GestureCapturePending => Volatile.Read(ref _gestureCaptureRequested) == 1;
+    internal static bool GesturePracticeActive => Volatile.Read(ref _gesturePracticeActive) == 1;
+    internal static void BeginGesturePractice() => Interlocked.Exchange(ref _gesturePracticeActive, 1);
+    internal static void EndGesturePractice() => Interlocked.Exchange(ref _gesturePracticeActive, 0);
     internal static bool BeginGestureCapture() => Interlocked.Exchange(ref _gestureCaptureRequested, 1) == 0;
     internal static bool TryBeginGestureCaptureSession() => Interlocked.Exchange(ref _gestureCaptureRequested, 0) == 1;
     internal static void CancelGestureCapture() => Interlocked.Exchange(ref _gestureCaptureRequested, 0);
@@ -41,6 +49,16 @@ internal static class AppSettings
     {
         get => Volatile.Read(ref _showTrail) == 1;
         set => Volatile.Write(ref _showTrail, value ? 1 : 0);
+    }
+    internal static bool ShowResultFeedback
+    {
+        get => Volatile.Read(ref _showResultFeedback) == 1;
+        set => Volatile.Write(ref _showResultFeedback, value ? 1 : 0);
+    }
+    internal static bool ReduceVisualEffects
+    {
+        get => Volatile.Read(ref _reduceVisualEffects) == 1;
+        set => Volatile.Write(ref _reduceVisualEffects, value ? 1 : 0);
     }
     internal static int MinimumHorizontalMovementPx
     {
@@ -63,6 +81,8 @@ internal static class AppSettings
         set => Volatile.Write(ref _clickMovementThresholdPx, Math.Clamp(value, 2, 15));
     }
     internal static string LogDirectory => Path.Combine(DirectoryPath, "Logs");
+    internal static string BackupDirectory => Path.Combine(DirectoryPath, "Backups");
+    internal static bool ShouldShowWelcome { get { lock (Sync) return !_welcomeCompleted; } }
     internal static ShortcutPair GlobalShortcuts { get { lock (Sync) return _globalShortcuts; } }
     internal static IReadOnlyDictionary<string, ShortcutOverride> ShortcutProfiles
     { get { lock (Sync) return new Dictionary<string, ShortcutOverride>(_shortcutProfiles, StringComparer.OrdinalIgnoreCase); } }
@@ -132,6 +152,33 @@ internal static class AppSettings
         get { lock (Sync) return new Dictionary<string, bool>(_profiles, StringComparer.OrdinalIgnoreCase); }
     }
 
+    internal static IReadOnlyDictionary<string, string> ApplicationPaths
+    { get { lock (Sync) return new Dictionary<string, string>(_applicationPaths, StringComparer.OrdinalIgnoreCase); } }
+
+    internal static bool HasApplicationProfile(string processName)
+    {
+        var name = Path.GetFileNameWithoutExtension(processName.Trim());
+        lock (Sync)
+            return _profiles.ContainsKey(name) || _shortcutProfiles.ContainsKey(name) ||
+                _gestureProfiles.ContainsKey(name) || _applicationPaths.ContainsKey(name);
+    }
+
+    internal static void SetApplicationPaths(IEnumerable<KeyValuePair<string, string>> paths)
+    {
+        var updated = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var item in paths)
+        {
+            var name = Path.GetFileNameWithoutExtension(item.Key.Trim());
+            if (!IsValidProcessName(name) || string.IsNullOrWhiteSpace(item.Value) || !Path.IsPathFullyQualified(item.Value))
+                throw new ArgumentException("An application executable path is invalid.", nameof(paths));
+            updated[name] = Path.GetFullPath(item.Value);
+        }
+        lock (Sync) _applicationPaths = updated;
+    }
+
+    private static bool IsValidProcessName(string name) => !string.IsNullOrWhiteSpace(name) && name.Length <= 260 &&
+        name is not "." and not ".." && name.IndexOfAny(Path.GetInvalidFileNameChars()) < 0;
+
     internal static bool IsEnabledForProcess(string processName)
     {
         if (string.IsNullOrWhiteSpace(processName)) return GesturesEnabled;
@@ -153,16 +200,41 @@ internal static class AppSettings
 
     static AppSettings() => Load();
 
+    internal static void CompleteWelcome()
+    {
+        lock (Sync) _welcomeCompleted = true;
+        Save();
+    }
+
     internal static void Load()
     {
         try
         {
-            if (!File.Exists(SettingsPath)) return;
+            if (!File.Exists(SettingsPath))
+            {
+                _welcomeCompleted = false;
+                return;
+            }
             var data = JsonSerializer.Deserialize<SettingsData>(File.ReadAllText(SettingsPath));
             if (data is null) return;
+            _welcomeCompleted = data.WelcomeCompleted ?? true;
             GesturesEnabled = data.GesturesEnabled;
             ShowTrail = data.ShowTrail;
+            ShowResultFeedback = data.ShowResultFeedback ?? false;
+            ReduceVisualEffects = data.ReduceVisualEffects ?? false;
             SetProfiles(data.Profiles ?? []);
+            var validApplicationPaths = new List<KeyValuePair<string, string>>();
+            foreach (var item in data.ApplicationPaths ?? new Dictionary<string, string>())
+            {
+                try
+                {
+                    if (IsValidProcessName(Path.GetFileNameWithoutExtension(item.Key.Trim())) &&
+                        !string.IsNullOrWhiteSpace(item.Value) && Path.IsPathFullyQualified(item.Value))
+                        validApplicationPaths.Add(new KeyValuePair<string, string>(item.Key, Path.GetFullPath(item.Value)));
+                }
+                catch { DiagnosticLog.Write("SETTINGS invalidApplicationPath=true"); }
+            }
+            SetApplicationPaths(validApplicationPaths);
             MinimumHorizontalMovementPx = data.MinimumHorizontalMovementPx ?? 70;
             MaximumVerticalMovementPx = data.MaximumVerticalMovementPx ?? 120;
             MaximumGestureDurationMs = data.MaximumGestureDurationMs ?? 1000;
@@ -173,6 +245,11 @@ internal static class AppSettings
             if (global.IsValid && mappings.All(x => x.Value.IsValid)) SetShortcuts(global, mappings);
             var gestures = data.Gestures ?? [];
             var oldProfiles = (data.GestureProfiles ?? new()).Where(x => x.Value is not null).ToList();
+            if (oldProfiles.Any(x => !x.Value!.InheritGlobal))
+            {
+                try { SettingsTransfer.WriteAutomaticBackup(SettingsTransfer.FromStoredSettings(data), "BeforeMigration"); }
+                catch (Exception ex) { DiagnosticLog.Write($"SETTINGS migrationBackupFailed=true errorType={ex.GetType().Name}"); }
+            }
             var gestureProfiles = oldProfiles.Select(x =>
             {
                 var profile = x.Value!;
@@ -202,6 +279,9 @@ internal static class AppSettings
                 MaximumGestureDurationMs, ClickMovementThresholdPx);
             data = data with { GlobalShortcuts = _globalShortcuts, ShortcutProfiles = new(_shortcutProfiles, StringComparer.OrdinalIgnoreCase) };
             data = data with { Gestures = _globalGestures, GestureProfiles = new(_gestureProfiles, StringComparer.OrdinalIgnoreCase) };
+            data = data with { WelcomeCompleted = _welcomeCompleted };
+            data = data with { ApplicationPaths = new(_applicationPaths, StringComparer.OrdinalIgnoreCase) };
+            data = data with { ShowResultFeedback = ShowResultFeedback, ReduceVisualEffects = ReduceVisualEffects };
             var json = JsonSerializer.Serialize(data, new JsonSerializerOptions { WriteIndented = true });
             File.WriteAllText(SettingsPath, json);
         }
@@ -214,7 +294,7 @@ internal static class AppSettings
         Process.Start(new ProcessStartInfo("explorer.exe", LogDirectory) { UseShellExecute = true });
     }
 
-    private sealed record SettingsData(bool GesturesEnabled, bool ShowTrail,
+    internal sealed record SettingsData(bool GesturesEnabled, bool ShowTrail,
         Dictionary<string, bool>? Profiles = null,
         int? MinimumHorizontalMovementPx = null,
         int? MaximumVerticalMovementPx = null,
@@ -223,5 +303,9 @@ internal static class AppSettings
         ShortcutPair? GlobalShortcuts = null,
         Dictionary<string, ShortcutOverride>? ShortcutProfiles = null,
         List<GestureDefinition>? Gestures = null,
-        Dictionary<string, GestureProfile>? GestureProfiles = null);
+        Dictionary<string, GestureProfile>? GestureProfiles = null,
+        bool? WelcomeCompleted = null,
+        Dictionary<string, string>? ApplicationPaths = null,
+        bool? ShowResultFeedback = null,
+        bool? ReduceVisualEffects = null);
 }

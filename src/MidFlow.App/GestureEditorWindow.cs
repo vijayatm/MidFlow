@@ -158,6 +158,12 @@ internal sealed class GestureEditorWindow : Window
         foreach (var p in _path.Points)
             points.Add(new Point((_preview.ActualWidth / 2) + (p.X * span), (_preview.ActualHeight / 2) + (p.Y * span)));
         _preview.Children.Add(new Polyline { Points = points, Stroke = new SolidColorBrush(Color.FromRgb(44, 118, 210)), StrokeThickness = 3, StrokeLineJoin = PenLineJoin.Round });
+        var start = points[0];
+        _preview.Children.Add(new System.Windows.Shapes.Ellipse { Width = 9, Height = 9, Fill = Brushes.White, Stroke = new SolidColorBrush(Color.FromRgb(35, 145, 80)), StrokeThickness = 2,
+            RenderTransform = new TranslateTransform(start.X - 4.5, start.Y - 4.5) });
+        var end = points[^1];
+        _preview.Children.Add(new System.Windows.Shapes.Ellipse { Width = 9, Height = 9, Fill = new SolidColorBrush(Color.FromRgb(44, 118, 210)), Stroke = Brushes.White, StrokeThickness = 1,
+            RenderTransform = new TranslateTransform(end.X - 4.5, end.Y - 4.5) });
     }
 
     private void Save_Click(object sender, RoutedEventArgs e)
@@ -175,7 +181,7 @@ internal sealed class GestureEditorWindow : Window
             target = _applicationPath.Text.Trim();
             if (string.IsNullOrWhiteSpace(target) || !System.IO.Path.IsPathFullyQualified(target) || !System.IO.File.Exists(target))
             {
-                MessageBox.Show(this, "Choose an existing application file to launch.", "Gesture", MessageBoxButton.OK, MessageBoxImage.Warning);
+                MessageBox.Show(this, "The launch target is missing or invalid. Browse to an existing .exe file, then save the gesture again.", "Gesture", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
         }

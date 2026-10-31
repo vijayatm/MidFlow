@@ -13,5 +13,10 @@ public partial class App : System.Windows.Application
         _mainWindow = new MainWindow();
         MainWindow = _mainWindow;
         _mainWindow.Show();
+        if (AppSettings.ShouldShowWelcome)
+        {
+            var welcome = new FirstRunWindow { Owner = _mainWindow };
+            welcome.ShowDialog();
+        }
     }
 }

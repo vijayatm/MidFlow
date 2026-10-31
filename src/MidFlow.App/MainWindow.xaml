@@ -10,5 +10,12 @@
         ShowInTaskbar="False"
         Topmost="True"
         ShowActivated="False">
-  <local:TrailSurface x:Name="TrailSurface" IsHitTestVisible="False" />
+  <Grid IsHitTestVisible="False">
+    <local:TrailSurface x:Name="TrailSurface" />
+    <Canvas x:Name="FeedbackCanvas" ClipToBounds="True">
+      <Border x:Name="ResultFeedback" Visibility="Collapsed" Background="#E6222630" CornerRadius="6" Padding="10,6">
+        <TextBlock x:Name="ResultFeedbackText" Foreground="White" FontSize="13"/>
+      </Border>
+    </Canvas>
+  </Grid>
 </Window>

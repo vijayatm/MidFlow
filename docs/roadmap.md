@@ -1,36 +1,154 @@
 # MidFlow roadmap
 
-## Current baseline
+This roadmap replaces the original Phase 8–14 checklist with a product-focused plan. It separates the features already present from proposed work and groups future work by user outcome. The order is a suggested sequence; each phase should be scoped and reviewed before implementation.
 
-Phase 7 gesture sensitivity and per-application enable/disable profiles are retained. The repository has been split into `MidFlow.App` and `MidFlow.Core`; gesture recognition, shortcut models, and profile resolution live in Core.
+## Product direction
 
-## Phase 8 — Per-application shortcut mappings
+Make MidFlow easy to understand, quick to configure, predictable across applications, and dependable during everyday use. Keep it a lightweight native Windows utility: gesture recognition and input handling should stay responsive, settings should remain recoverable, and new features should earn their idle CPU and memory cost.
 
-- Configure independent directional keyboard chords.
-- Allow a directional binding to be disabled.
-- Provide global defaults and optional per-application overrides.
-- Preserve existing enable/disable profiles and legacy settings JSON.
-- Validate mappings before saving and keep `SendInput` on the action worker.
-- Add core tests for mapping validation and action resolution as part of feature work.
+## Shipped foundation
 
-Phase 8 began with global and per-application Back/Forward chord mappings. Existing settings retain the `Alt+Left` / `Alt+Right` defaults, and shortcut injection stays on the action worker.
+The current app already provides:
 
-## Phase 9 — Custom gestures and application profiles
+- Global enablement, adjustable gesture sensitivity, and a cursor trail with direction feedback.
+- Left, Right, Up, and Down directional gestures; Up and Down are disabled by default.
+- Recordable keyboard chords, including per-application overrides and disabled mappings.
+- Per-application enablement and inherited or overridden gesture profiles.
+- Recorded custom paths with Back, Forward, Up, Down, and launch-application actions.
+- A settings window, notification-area icon, diagnostic logging, and settings persistence.
+- Legacy compatibility with `%APPDATA%\MouseFlow\settings.json` and the existing Back/Forward defaults.
 
-- Combine directional shortcuts, per-app enablement, and custom shapes in one gesture profile screen.
-- Support Left, Right, Up, and Down directional bindings. Keep Up and Down disabled by default.
-- Record and normalize custom paths while holding the middle mouse button.
-- Assign Back, Forward, Up, Down, or launch a user-selected executable.
-- Manage global bindings and per-application inherited or independent overrides.
-- Show gesture previews, enabled state, inheritance, and similarity feedback in Settings.
-- Match custom paths on the action worker; preserve directional shortcut fallback when no custom path matches.
-- Keep stationary middle-click replay and suppression of slow or unrecognized drags.
-- Migrate old Back/Forward settings into the unified profile without changing the legacy path or defaults.
-- Add deterministic Core tests for four-way classification, normalization, matching, ambiguity, validation, and profile resolution.
+## Delivery phases
 
-## Later phases
+### Phase 1 — Settings that are easier to scan (delivered)
 
-- Phase 10: gesture recognition usability, reliability, diagnostics, and performance review.
-- Phase 11: visual customization.
-- Phase 12: Windows startup and single-instance integration.
-- Phase 13: release packaging and distribution.
+Improve the existing profile editor so common tasks take fewer clicks and profile state is obvious.
+
+- Reorganize settings into clear sections: General, Gestures, Applications, Appearance, and Diagnostics.
+- Show each gesture as a compact row with direction or preview, action, enabled state, and an inline edit action.
+- Make inherited, overridden, and disabled values visibly distinct, with a direct “Reset to global” action.
+- Add profile search and sorting by application name and enabled state; retain a clear empty state and add-app action.
+- Keep unsaved edits visible, add a discard confirmation when closing with changes, and provide inline validation near invalid fields.
+- Improve window resizing, keyboard navigation, focus order, high-DPI scaling, and screen-reader names.
+
+**Acceptance:** a user can identify which profile is being edited and whether each value is inherited without opening a dialog; accidental window closure does not silently lose edits.
+
+### Phase 2 — First-run setup and learn-by-doing (delivered)
+
+Help new users understand the middle-button gesture model and safely verify their setup.
+
+- Add a short first-run guide explaining the middle-button hold, drag, release, and stationary-click behavior.
+- Offer a guided test area that previews a gesture and its resolved action without sending keyboard input or launching an app.
+- Provide a small set of optional starter custom shapes and let users preview them before adding them.
+- Explain when an application profile uses global settings and how to add or remove an override.
+- Add a “restore recommended defaults” action with a clear summary of what will be reset.
+
+**Acceptance:** users can complete setup, understand how to test a mapping safely, and return to defaults without editing JSON.
+
+### Phase 3 — More useful application profiles (delivered)
+
+Make per-app behavior practical to create and maintain across installed software.
+
+- Show the foreground application name and current profile state in the tray menu or settings status area.
+- Add an optional “create profile for the current app” shortcut from the tray or settings.
+- Support choosing an executable through Browse and show the resolved process name before saving.
+- Detect duplicate profiles and invalid or missing executable paths with actionable messages.
+- Add profile copy/duplicate and reset-to-inherited actions for apps with similar configurations.
+- Keep process-name matching explicit; consider multiple executable aliases only if real user scenarios require them.
+
+**Acceptance:** users can create, identify, duplicate, reset, and remove profiles without guessing which process name MidFlow uses.
+
+### Phase 4 — Profile portability and recovery (delivered)
+
+Make settings easier to back up, move, and recover after a bad edit or upgrade.
+
+- Export and import profiles as a versioned JSON file, with a preview of changes before applying.
+- Support exporting all settings or selected application profiles.
+- Validate imported data and report skipped or incompatible entries instead of partially applying silently.
+- Create a recoverable backup before migrations or bulk imports; provide a restore action.
+- Document the legacy settings path and migration behavior in the UI and release notes.
+
+**Acceptance:** export/import round-trips preserve effective global and app behavior, and invalid imports leave existing settings intact.
+
+### Phase 5 — Gesture tuning and visual feedback
+
+**Delivered:** named Relaxed, Balanced, and Precise presets with Custom detection; independent cursor trail, result-message, and reduced-effects options; brief action-result messages from the action worker; simplified trail rendering for reduced effects; and start/end markers in the normalized custom-path preview. New preferences are optional in legacy settings and included in full-settings transfers.
+
+Give users control over how gestures feel while keeping recognition understandable.
+
+- Add named sensitivity presets (for example, Relaxed, Balanced, and Precise) that map to validated settings.
+- Explain movement threshold, drift, and duration in plain language with reset-to-default actions.
+- Preview the recorded custom path and its normalized recognition shape before saving.
+- Let users adjust custom-gesture sensitivity only if usability evidence shows a need for per-shape thresholds.
+- Add an optional brief on-screen result indicator for recognized action, disabled mapping, or rejected ambiguous gesture.
+- Keep trail and feedback options independently configurable, including a reduced-visual-effects choice.
+
+**Acceptance:** tuning remains bounded and validated, the preview reflects the saved gesture, and overlays can be disabled without affecting recognition.
+
+### Phase 6 — Everyday control and accessibility
+
+Make MidFlow’s state and controls easy to reach without requiring the settings window.
+
+- Expand tray actions for enable/disable, open settings, and pause for a chosen duration.
+- Add a configurable keyboard toggle only if it can avoid conflicts and remain opt-in.
+- Add accessible names, consistent keyboard shortcuts inside settings, visible focus, and high-contrast-friendly states.
+- Consider a compact status window showing global state, foreground app, and the active profile.
+- Add options for launching minimized and opening settings on demand.
+
+**Acceptance:** users can see whether MidFlow is active and pause or resume it quickly, with all controls usable by keyboard.
+
+### Phase 7 — Reliability, diagnostics, and performance
+
+Make input handling easier to trust and problems easier to diagnose.
+
+- Audit hook lifecycle, cancellation, action-queue behavior, app shutdown, and unmanaged resource disposal.
+- Review foreground-application detection and eliminate unnecessary polling where event-driven APIs are practical.
+- Add bounded, privacy-conscious diagnostics for recognition decisions, queue delays, and action failures.
+- Provide a user-accessible diagnostics view and a “copy support report” action that excludes gesture paths and app data by default.
+- Add deterministic Core coverage for settings validation, profile inheritance, gesture edge cases, and migration compatibility.
+- Measure idle CPU, memory, and gesture-to-action latency before and after performance changes.
+
+**Acceptance:** failures are observable, diagnostics are bounded and user-controlled, and measurements show no material regression to idle cost or input latency.
+
+### Phase 8 — Windows startup and lifecycle
+
+Let users choose how MidFlow starts and behaves across sign-in and relaunch.
+
+- Add an opt-in Windows sign-in launch setting with clear status and a way to disable it.
+- Enforce one running instance and focus the existing instance when launched again.
+- Define behavior for logoff, shutdown, settings migration, and interrupted updates.
+- Keep startup integration within supported Windows mechanisms and avoid background services.
+
+**Acceptance:** startup is optional, single-instance behavior is predictable, and uninstalling or disabling startup leaves no active registration behind.
+
+### Phase 9 — Visual customization
+
+Let users tailor feedback without obscuring the pointer or distracting from work.
+
+- Offer a small set of trail colors, thicknesses, and durations with an immediate preview.
+- Allow direction feedback to be simplified or hidden independently from the trail.
+- Respect Windows scaling and contrast preferences; avoid color-only status cues.
+- Keep visual settings optional and ensure overlay rendering remains click-through and independent of recognition.
+
+**Acceptance:** appearance changes do not affect gesture results, remain legible at common display scales, and can be reset easily.
+
+### Phase 10 — Packaging and release experience
+
+Make installation, upgrade, and removal understandable for non-developer users.
+
+- Decide whether the portable ZIP is sufficient or a signed installer is justified by user demand.
+- If an installer is added, support clean install, upgrade, uninstall, startup cleanup, and settings preservation.
+- Publish release notes that distinguish new behavior, fixes, and settings migrations.
+- Add a repeatable release checklist for clean-machine launch, upgrade compatibility, and architecture/runtime requirements.
+- Keep signing, update delivery, and distribution choices explicit; do not add a background updater without a separate privacy and security review.
+
+**Acceptance:** users can install or run a release, upgrade without losing profiles, and remove the app without stale startup entries.
+
+## Product-wide constraints
+
+- Preserve the legacy settings path and existing settings compatibility unless a migration is deliberate, documented, and recoverable.
+- Keep current gesture defaults unless a specific change is measured and explicitly adopted.
+- Keep low-level hook work short; queue recognition and action work where appropriate, and never perform synchronous `SendInput` in the hook callback.
+- Keep OS integration in `MidFlow.App` and deterministic gesture/profile logic in `MidFlow.Core`.
+- Avoid hardcoded application-specific shortcuts, unnecessary dependencies, background services, and idle polling.
+- Include observable acceptance criteria and relevant validation in each feature proposal before implementation.
