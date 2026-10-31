@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <PlatformTarget>x64</PlatformTarget>
+    <AssemblyName>MidFlow.App</AssemblyName>
+    <Version>7.1.0</Version>
+    <FileVersion>7.1.0.0</FileVersion>
+    <RootNamespace>MidFlow.App</RootNamespace>
+    <ApplicationIcon>MidFlow.ico</ApplicationIcon>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\MidFlow.Core\MidFlow.Core.csproj" />
+    <Content Include="MidFlow.ico" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

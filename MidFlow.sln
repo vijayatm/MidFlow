@@ -1,0 +1,24 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "MidFlow.App", "src\MidFlow.App\MidFlow.App.csproj", "{95B15518-5685-46A4-B5D3-4DAB8A2FA1C1}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "MidFlow.Core", "src\MidFlow.Core\MidFlow.Core.csproj", "{F7D5B1A1-E46E-45B2-8EEA-7786FE0FF95B}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{95B15518-5685-46A4-B5D3-4DAB8A2FA1C1}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{95B15518-5685-46A4-B5D3-4DAB8A2FA1C1}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{95B15518-5685-46A4-B5D3-4DAB8A2FA1C1}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{95B15518-5685-46A4-B5D3-4DAB8A2FA1C1}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F7D5B1A1-E46E-45B2-8EEA-7786FE0FF95B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F7D5B1A1-E46E-45B2-8EEA-7786FE0FF95B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F7D5B1A1-E46E-45B2-8EEA-7786FE0FF95B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F7D5B1A1-E46E-45B2-8EEA-7786FE0FF95B}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal
