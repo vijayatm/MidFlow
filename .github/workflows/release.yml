@@ -16,7 +16,7 @@ jobs:
         uses: actions/checkout@v5
 
       - name: Set writable .NET install directory
-        shell: pwsh
+        shell: powershell
         run: Add-Content -Path $env:GITHUB_ENV -Value "DOTNET_INSTALL_DIR=$env:RUNNER_TEMP\dotnet"
 
       - name: Set up .NET
