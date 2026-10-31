@@ -23,7 +23,8 @@
             <Button Content="Add app" Padding="10,4" Click="AddApplication_Click"/>
           </StackPanel>
           <TextBox x:Name="ApplicationTextBox" Margin="0,0,8,0" VerticalContentAlignment="Center"
-                   ToolTip="Enter a process name or browse to its executable"/>
+                   ToolTip="Enter a process name or browse to its executable"
+                   PreviewKeyDown="ApplicationTextBox_PreviewKeyDown"/>
         </DockPanel>
         <Grid Grid.Row="1">
           <Grid.ColumnDefinitions><ColumnDefinition Width="190"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>

@@ -298,6 +298,18 @@ public partial class SettingsWindow : Window
 
     private void AddApplication_Click(object sender, RoutedEventArgs e)
     {
+        AddApplication();
+    }
+
+    private void ApplicationTextBox_PreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Enter) return;
+        e.Handled = true;
+        AddApplication();
+    }
+
+    private void AddApplication()
+    {
         var process = Path.GetFileNameWithoutExtension(ApplicationTextBox.Text.Trim());
         if (string.IsNullOrWhiteSpace(process))
         {
