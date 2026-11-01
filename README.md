@@ -68,8 +68,8 @@ After the workflow is on the default branch, create and push a new, unused stabl
 ```powershell
 git switch main
 git pull
-git tag v7.1.8
-git push origin v7.1.8
+git tag v7.1.9
+git push origin v7.1.9
 ```
 
 Tags must use `vMAJOR.MINOR.PATCH`; the tag sets the app and installer version. GitHub Actions publishes `MidFlow-Setup-x64.exe` and `MidFlow-win-x64.zip` to that tag's Release. The workflow needs the repository's standard `contents: write` permission to publish assets. Release notes are generated from GitHub's release metadata; review and edit them before announcing a release.
