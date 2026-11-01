@@ -59,7 +59,9 @@ internal sealed class FirstRunWindow : Window
         var settings = new Button { Content = "Open settings", IsDefault = true, Padding = new Thickness(12, 5, 12, 5) };
         settings.Click += (_, _) =>
         {
-            var window = new SettingsWindow { Owner = this };
+            var owner = Owner;
+            Close();
+            var window = new SettingsWindow { Owner = owner };
             window.ShowDialog();
         };
         actions.Children.Add(later);

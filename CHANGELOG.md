@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.0 - 2026-11-01
 
 - Added Relaxed, Balanced, and Precise gesture sensitivity presets with automatic Custom detection; made result messages, cursor trail, and reduced visual effects independent options.
 - Added brief post-gesture result messages, a reduced-effects trail renderer, and visible start/end markers on normalized custom gesture previews.
