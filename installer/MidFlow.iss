@@ -6,7 +6,7 @@
 #define AppPublisher "Vijay ATM"
 #define AppUrl "https://github.com/vijayatm/MidFlow"
 #define AppExeName "MidFlow.App.exe"
-#define AppId "{71D661A7-03CB-4EA4-8DCB-FB4CE6710F32}"
+#define AppId "{{71D661A7-03CB-4EA4-8DCB-FB4CE6710F32}}"
 
 [Setup]
 AppId={#AppId}
