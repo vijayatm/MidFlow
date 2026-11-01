@@ -61,18 +61,18 @@ The portable option remains available as `MidFlow-win-x64.zip`. Extract it to a 
 
 ### Publish a Windows release
 
-The `.github/workflows/release.yml` workflow builds both release assets on a clean GitHub-hosted Windows runner. It installs the .NET 10 SDK and Inno Setup, publishes the self-contained `win-x64` single-file app, then creates the portable ZIP and setup installer from the same payload. No self-hosted runner or machine-wide .NET setup is required.
+The `.github/workflows/release.yml` workflow builds both release assets on the configured self-hosted Windows runner. The runner must have the .NET 10 SDK and Inno Setup 6 or 7 installed machine-wide. It publishes the self-contained `win-x64` single-file app, then creates the portable ZIP and setup installer from the same payload.
 
-After the workflow is on the default branch, create and push a new, unused stable version tag for the commit to publish:
+After the workflow is on the default branch, update the application version in `src/MidFlow.App/MidFlow.App.csproj` and push the change to `main`:
 
 ```powershell
 git switch main
 git pull
-git tag v7.1.9
-git push origin v7.1.9
+# Update <Version> and <FileVersion>, then commit and push.
+git push origin main
 ```
 
-Tags must use `vMAJOR.MINOR.PATCH`; the tag sets the app and installer version. GitHub Actions publishes `MidFlow-Setup-x64.exe` and `MidFlow-win-x64.zip` to that tag's Release. The workflow needs the repository's standard `contents: write` permission to publish assets. Release notes are generated from GitHub's release metadata; review and edit them before announcing a release.
+The workflow detects a version change, publishes the app and installer, and creates or updates the matching `vMAJOR.MINOR.PATCH` GitHub Release. Use **Run workflow** for a manual rebuild; it takes the newest existing version tag and replaces that release's assets. The workflow needs the repository's standard `contents: write` permission. Release notes are generated from GitHub's release metadata; review and edit them before announcing a release.
 
 ## Settings compatibility
 
