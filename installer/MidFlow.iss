@@ -54,12 +54,24 @@ Name: "{autodesktop}\MidFlow"; Filename: "{app}\{#AppExeName}"; Tasks: desktopic
 [Run]
 Filename: "{app}\{#AppExeName}"; Description: "Launch MidFlow"; Flags: nowait postinstall skipifsilent
 
+[UninstallDelete]
+Type: filesandordirs; Name: "{app}"
+
 [Code]
 var
   RemoveUserData: Boolean;
 
+procedure StopMidFlow;
+var
+  ResultCode: Integer;
+begin
+  Exec(ExpandConstant('{sys}\taskkill.exe'), '/F /T /IM "MidFlow.App.exe"', '', SW_HIDE,
+    ewWaitUntilTerminated, ResultCode);
+end;
+
 function InitializeUninstall(): Boolean;
 begin
+  StopMidFlow;
   Result := True;
   RemoveUserData := False;
   if DirExists(ExpandConstant('{userappdata}\MouseFlow')) then
