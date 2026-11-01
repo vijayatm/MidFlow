@@ -10,18 +10,25 @@ permissions:
 
 jobs:
   publish:
-    runs-on: windows-latest
+    runs-on: [self-hosted, Windows, X64]
     steps:
       - name: Check out repository
         uses: actions/checkout@v5
 
-      - name: Set up .NET 10 SDK
-        uses: actions/setup-dotnet@v6
-        with:
-          dotnet-version: 10.0.x
-
-      - name: Install Inno Setup
-        run: winget install --id JRSoftware.InnoSetup.7 --exact --version 7.1.0 --silent --accept-package-agreements --accept-source-agreements
+      - name: Verify release build tools
+        shell: pwsh
+        run: |
+          $sdks = dotnet --list-sdks
+          if (-not ($sdks -match '^10\.')) {
+            throw "The self-hosted runner needs the .NET 10 SDK installed machine-wide."
+          }
+          $compilerPaths = @(
+            (Join-Path ${env:ProgramFiles(x86)} "Inno Setup 7\ISCC.exe"),
+            (Join-Path $env:ProgramFiles "Inno Setup 7\ISCC.exe")
+          )
+          if (-not ($compilerPaths | Where-Object { Test-Path -LiteralPath $_ })) {
+            throw "Install Inno Setup 7 machine-wide on the runner before publishing releases."
+          }
 
       - name: Validate release tag and package assets
         shell: pwsh
