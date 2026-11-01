@@ -147,6 +147,14 @@
               <Button Content="Open log folder" HorizontalAlignment="Left" Padding="10,5" Click="OpenLogFolder_Click" AutomationProperties.Name="Open MidFlow diagnostic log folder"/>
             </StackPanel>
           </GroupBox>
+          <GroupBox Header="Application updates" Padding="12" Margin="0,12,0,0">
+            <StackPanel>
+              <TextBlock Text="Open the latest GitHub Release to review changes and download an update. MidFlow does not check for or install updates in the background."
+                         TextWrapping="Wrap" Margin="0,0,0,10"/>
+              <Button Content="Open latest release page" HorizontalAlignment="Left" Padding="10,5"
+                      Click="OpenLatestRelease_Click" AutomationProperties.Name="Open the latest MidFlow release page"/>
+            </StackPanel>
+          </GroupBox>
           <GroupBox Header="Profile backup and transfer" Padding="12" Margin="0,12,0,0">
             <StackPanel>
               <TextBlock Text="Export all settings or selected application profiles. Imports are validated and previewed before they change this draft. A recovery backup is created before an import or restore."

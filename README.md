@@ -49,28 +49,30 @@ dotnet publish .\src\MidFlow.App\MidFlow.App.csproj -c Release -r win-x64 --self
 
 The distribution folder is `artifacts\win-x64`. The command directs build and publish outputs to the same folder, avoiding duplicate copies under the project `bin` directories. This is a framework-dependent publish, so the target machine needs the .NET 10 Windows Desktop runtime. For development builds, run the `dotnet build` command above directly.
 
-### Publish a Windows download on GitHub
+### Install, upgrade, and uninstall
 
-The repository includes `.github/workflows/release.yml`. Because the release job uses a self-hosted Windows runner, set up your PC once, then publish a release whenever you push a version tag:
+For most users, download `MidFlow-Setup-x64.exe` from the [latest GitHub Release](https://github.com/vijayatm/MidFlow/releases/latest) and run it. The installer is per-user, does not require administrator rights or a separate .NET runtime, creates a Start Menu shortcut, and offers an optional desktop shortcut. Windows may show a SmartScreen warning because the installer is not currently Authenticode-signed.
 
-1. Install the **.NET 10 SDK** machine-wide on the Windows PC, and confirm `dotnet --info` works from a standard PowerShell window. The release job uses the SDK already installed on this PC; it does not install .NET for each job. Keep the PC online while a release is building.
-2. In the repository, open **Settings → Actions → Runners → New self-hosted runner**, select **Windows** and **x64**, then follow GitHub's displayed download and configuration commands on that PC. Register it for this repository and configure it to run as a Windows service so it is available after sign-in or restart. If you install or update .NET after configuring the service, restart the runner service so it sees the machine-wide PATH. Keep the runner software updated.
-3. In the repository, open **Settings → Actions → General** and make sure Actions are allowed. Under **Workflow permissions**, allow read and write access if required; the workflow requests `contents: write` to create releases.
-4. Push the workflow to GitHub on the default branch (`main`). Confirm the runner appears as **Idle** under **Settings → Actions → Runners**.
-5. From PowerShell in the repository, create and push a new, unused version tag for the commit you want to publish. For example:
+To upgrade, run the newer `MidFlow-Setup-x64.exe`; if MidFlow is running, Setup asks to close it before replacing the installed app files. Your settings, profiles, logs, and recovery backups remain under `%APPDATA%\MouseFlow` across upgrades. MidFlow does not download updates or check for them in the background. Choose **Get updates** in the tray menu or **Open latest release page** in Settings → Diagnostics to open the release page, review the notes, and download an update.
 
-   ```powershell
-   git switch main
-   git pull
-   git tag v7.1.7
-   git push origin v7.1.7
-   ```
+To uninstall, use **Settings → Apps → Installed apps → MidFlow → Uninstall** or **Start → MidFlow → Uninstall MidFlow**. The uninstaller asks whether to keep the settings, profiles, logs, and recovery backups. Keeping them is the default. Choosing removal deletes `%APPDATA%\MouseFlow` after the app is uninstalled.
 
-   The workflow runs for tags matching `v*`. Use a new, unused version tag for each release.
-6. In GitHub, open **Actions** and wait for **Windows release** to finish. Then open **Releases** and select the release for that tag.
-7. Download `MidFlow-win-x64.zip` from the release's **Assets** section. Extract it and run `MidFlow.App.exe`.
+The portable option remains available as `MidFlow-win-x64.zip`. Extract it to a folder you control and run `MidFlow.App.exe`; no installer or runtime is required. Removing the extracted folder removes the portable app. Its settings are still stored in the same per-user `%APPDATA%\MouseFlow` location, so uninstalling either distribution does not affect the other distribution's settings.
 
-The workflow runs only on pushed version tags, but this is a public repository: never add pull request or other untrusted code workflows to this self-hosted runner. A self-hosted runner executes repository workflow code on your PC. The workflow builds a compressed, self-contained `win-x64` single-file app without PDB debug symbols, so users do not need to install the .NET runtime separately. Compression can add a small startup cost. The ZIP is a portable application package, not a setup wizard installer. The executable download is hosted as a GitHub Release asset; GitHub Packages is for registries such as NuGet and container images.
+### Publish a Windows release
+
+The `.github/workflows/release.yml` workflow builds both release assets on a clean GitHub-hosted Windows runner. It installs the .NET 10 SDK and Inno Setup, publishes the self-contained `win-x64` single-file app, then creates the portable ZIP and setup installer from the same payload. No self-hosted runner or machine-wide .NET setup is required.
+
+After the workflow is on the default branch, create and push a new, unused stable version tag for the commit to publish:
+
+```powershell
+git switch main
+git pull
+git tag v7.1.7
+git push origin v7.1.7
+```
+
+Tags must use `vMAJOR.MINOR.PATCH`; the tag sets the app and installer version. GitHub Actions publishes `MidFlow-Setup-x64.exe` and `MidFlow-win-x64.zip` to that tag's Release. The workflow needs the repository's standard `contents: write` permission to publish assets. Release notes are generated from GitHub's release metadata; review and edit them before announcing a release.
 
 ## Settings compatibility
 

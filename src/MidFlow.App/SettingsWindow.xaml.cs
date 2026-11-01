@@ -22,6 +22,7 @@ namespace MidFlow.App;
 
 public partial class SettingsWindow : Window
 {
+    private const string LatestReleaseUrl = "https://github.com/vijayatm/MidFlow/releases/latest";
     private ShortcutPair _globalShortcuts = ShortcutPair.Defaults;
     private readonly Dictionary<string, ShortcutOverride> _shortcutProfiles = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, bool> _applicationEnabled = new(StringComparer.OrdinalIgnoreCase);
@@ -1261,6 +1262,19 @@ public partial class SettingsWindow : Window
         {
             MessageBox.Show(this, $"Could not open the diagnostic log folder.\n\n{ex.Message}",
                 "Diagnostics", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    private void OpenLatestRelease_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            Process.Start(new ProcessStartInfo(LatestReleaseUrl) { UseShellExecute = true });
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, $"Could not open the latest release page.\n\n{ex.Message}",
+                "MidFlow updates", MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
 

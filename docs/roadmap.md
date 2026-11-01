@@ -136,13 +136,13 @@ Let users tailor feedback without obscuring the pointer or distracting from work
 
 Make installation, upgrade, and removal understandable for non-developer users.
 
-- Decide whether the portable ZIP is sufficient or a signed installer is justified by user demand.
-- If an installer is added, support clean install, upgrade, uninstall, startup cleanup, and settings preservation.
-- Publish release notes that distinguish new behavior, fixes, and settings migrations.
-- Add a repeatable release checklist for clean-machine launch, upgrade compatibility, and architecture/runtime requirements.
-- Keep signing, update delivery, and distribution choices explicit; do not add a background updater without a separate privacy and security review.
+- **Phase 10.1 — Release contract:** Keep the portable ZIP and add a per-user installer that needs no administrator rights. The installer is the recommended path for most users. Preserve `%APPDATA%\MouseFlow` settings and backups during upgrades and uninstall by default; offer explicit data removal during uninstall. Make version tags the release version source. Updates are user-initiated from GitHub Releases; no background checks or downloads.
+- **Phase 10.2 — Installer:** Package the self-contained x64 app with Inno Setup. Create Start Menu shortcuts, support in-place upgrades, close the running app cleanly when setup needs to replace it, and register a standard uninstaller. Do not add sign-in startup as part of installation.
+- **Phase 10.3 — Update entry point:** Add a clearly named app action that opens the latest GitHub Release page. Users review release notes and run the installer to update; keep the portable ZIP available for users who prefer it.
+- **Phase 10.4 — Release automation and guidance:** Build the installer and portable ZIP from the same tagged commit and publish both as release assets. Document fresh install, upgrade, uninstall, portable use, and settings retention. Keep signing and any automatic update delivery as separate future decisions.
+- **Phase 10.5 — Lifecycle verification:** Check a clean install, launch, upgrade over an older version with existing profiles, uninstall with and without data removal, and standalone portable launch on a clean Windows profile. Record runtime and architecture requirements.
 
-**Acceptance:** users can install or run a release, upgrade without losing profiles, and remove the app without stale startup entries.
+**Acceptance:** users can install or run a release without command-line steps, upgrade without losing profiles, get to the current release from the app, and uninstall without stale app files while choosing whether to retain settings and backups.
 
 ## Product-wide constraints
 

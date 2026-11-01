@@ -20,6 +20,7 @@ namespace MidFlow.App;
 
 public partial class MainWindow : Window
 {
+    private const string LatestReleaseUrl = "https://github.com/vijayatm/MidFlow/releases/latest";
     private const int TrailLifetimeMs = 260;
     private const int MaximumTrailPoints = 36;
 
@@ -95,6 +96,7 @@ public partial class MainWindow : Window
         menu.Items.Add(_createForegroundProfileMenuItem);
         menu.Items.Add(new Forms.ToolStripSeparator());
         menu.Items.Add("Settings...", null, (_, _) => OpenSettings());
+        menu.Items.Add("Get updates...", null, (_, _) => OpenLatestRelease());
         menu.Items.Add("Open log folder", null, (_, _) => AppSettings.OpenLogFolder());
         menu.Items.Add(new Forms.ToolStripSeparator());
         menu.Items.Add("Exit MidFlow", null, (_, _) => Application.Current.Shutdown());
@@ -136,6 +138,8 @@ public partial class MainWindow : Window
             _trayIcon.Dispose();
             _trayIconImage.Dispose();
             _hook?.Dispose();
+            if (!Application.Current.Dispatcher.HasShutdownStarted)
+                Application.Current.Shutdown();
         };
         Loaded += (_, _) => CompositionTarget.Rendering += OnCompositionRendering;
     }
@@ -195,6 +199,19 @@ public partial class MainWindow : Window
     {
         var settings = new SettingsWindow();
         settings.ShowDialog();
+    }
+
+    private static void OpenLatestRelease()
+    {
+        try
+        {
+            Process.Start(new ProcessStartInfo(LatestReleaseUrl) { UseShellExecute = true });
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"MidFlow could not open the release page.\n\n{ex.Message}",
+                "MidFlow updates", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
     }
 
     private void OpenSettingsForForegroundApp()
